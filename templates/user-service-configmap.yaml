@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "elearning.fullname" . }}-user-service-config
+  labels:
+    {{- include "elearning.userService.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    port: {{ .Values.userService.service.port }}
+    jwt_expiry_hours: {{ .Values.userService.env.JWT_EXPIRY_HOURS }}
+    cors_origins:
+      - "{{ include "elearning.publicUrl" . }}"
+    course_service_url: "http://{{ include "elearning.fullname" . }}-course-service:{{ .Values.courseService.service.port }}"
+    oauth_redirect_base: {{ .Values.sso.redirectBase | default (include "elearning.publicUrl" .) | quote }}
+    {{- if and .Values.sso.enabled .Values.sso.providers }}
+    providers:
+{{ toYaml .Values.sso.providers | indent 6 }}
+    {{- end }}
