@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "elearning.fullname" . }}-checker-service
+  name: {{ include "pupitre.fullname" . }}-checker-service
   labels:
-    {{- include "elearning.checkerService.labels" . | nindent 4 }}
+    {{- include "pupitre.checkerService.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.checkerService.replicaCount }}
   strategy:
     type: RollingUpdate
   selector:
     matchLabels:
-      {{- include "elearning.checkerService.selectorLabels" . | nindent 6 }}
+      {{- include "pupitre.checkerService.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "elearning.checkerService.labels" . | nindent 8 }}
+        {{- include "pupitre.checkerService.labels" . | nindent 8 }}
     spec:
       automountServiceAccountToken: false
       {{- with .Values.imagePullSecrets }}
@@ -26,7 +26,7 @@ spec:
         image: "{{ .Values.checkerService.image.repository }}:{{ .Values.checkerService.image.tag | default .Chart.AppVersion }}"
         imagePullPolicy: {{ .Values.checkerService.image.pullPolicy }}
         securityContext:
-          {{- include "elearning.securityContext" . | nindent 10 }}
+          {{- include "pupitre.securityContext" . | nindent 10 }}
         ports:
         - name: http
           containerPort: {{ .Values.checkerService.service.port }}
@@ -41,18 +41,18 @@ spec:
         - name: GITLAB_BASE_URL
           value: {{ .Values.checkerService.env.GITLAB_BASE_URL | quote }}
         - name: CORS_ORIGINS
-          value: "{{ include "elearning.publicUrl" . }}"
+          value: "{{ include "pupitre.publicUrl" . }}"
         - name: GITLAB_TOKEN
           valueFrom:
             secretKeyRef:
-              name: {{ include "elearning.fullname" . }}-secrets
+              name: {{ include "pupitre.fullname" . }}-secrets
               key: GITLAB_TOKEN
               optional: true
         - name: INTERNAL_SERVICE_SECRET
           valueFrom:
             secretKeyRef:
-              name: {{ include "elearning.internalSecretName" . }}
-              key: {{ include "elearning.internalSecretKey" . }}
+              name: {{ include "pupitre.internalSecretName" . }}
+              key: {{ include "pupitre.internalSecretKey" . }}
         {{- with .Values.checkerService.extraEnv }}
         {{- toYaml . | nindent 8 }}
         {{- end }}

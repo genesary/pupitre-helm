@@ -2,7 +2,7 @@ suite: user-service deployment
 templates:
   - user-service/deployment.yaml
 release:
-  name: elearning
+  name: pupitre
 tests:
   - it: renders a Deployment named after the release
     asserts:
@@ -10,7 +10,7 @@ tests:
           of: Deployment
       - equal:
           path: metadata.name
-          value: elearning-user-service
+          value: pupitre-user-service
   - it: runs the user-service container from the configured image
     set:
       userService.image.tag: "test"
@@ -20,7 +20,7 @@ tests:
           value: user-service
       - equal:
           path: spec.template.spec.containers[0].image
-          value: ghcr.io/towarmat83/elearning-user-service:test
+          value: ghcr.io/towarmat83/pupitre-user-service:test
   - it: exposes the configured service port
     asserts:
       - equal:

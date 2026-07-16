@@ -1,11 +1,11 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "elearning.name" -}}
+{{- define "pupitre.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
-{{- define "elearning.fullname" -}}
+{{- define "pupitre.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -16,26 +16,26 @@ Expand the name of the chart.
 {{/*
 Common labels
 */}}
-{{- define "elearning.labels" -}}
+{{- define "pupitre.labels" -}}
 helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
-app.kubernetes.io/name: {{ include "elearning.name" . }}
+app.kubernetes.io/name: {{ include "pupitre.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
-{{- define "elearning.courseService.labels" -}}
-{{ include "elearning.labels" . }}
+{{- define "pupitre.courseService.labels" -}}
+{{ include "pupitre.labels" . }}
 app.kubernetes.io/component: course-service
 {{- end }}
 
-{{- define "elearning.userService.labels" -}}
-{{ include "elearning.labels" . }}
+{{- define "pupitre.userService.labels" -}}
+{{ include "pupitre.labels" . }}
 app.kubernetes.io/component: user-service
 {{- end }}
 
-{{- define "elearning.frontend.labels" -}}
-{{ include "elearning.labels" . }}
+{{- define "pupitre.frontend.labels" -}}
+{{ include "pupitre.labels" . }}
 app.kubernetes.io/component: frontend
 {{- end }}
 
@@ -43,28 +43,28 @@ app.kubernetes.io/component: frontend
 {{/*
 Selector labels
 */}}
-{{- define "elearning.courseService.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "elearning.name" . }}
+{{- define "pupitre.courseService.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "pupitre.name" . }}
 app.kubernetes.io/component: course-service
 {{- end }}
 
-{{- define "elearning.userService.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "elearning.name" . }}
+{{- define "pupitre.userService.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "pupitre.name" . }}
 app.kubernetes.io/component: user-service
 {{- end }}
 
-{{- define "elearning.frontend.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "elearning.name" . }}
+{{- define "pupitre.frontend.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "pupitre.name" . }}
 app.kubernetes.io/component: frontend
 {{- end }}
 
-{{- define "elearning.checkerService.labels" -}}
-{{ include "elearning.labels" . }}
+{{- define "pupitre.checkerService.labels" -}}
+{{ include "pupitre.labels" . }}
 app.kubernetes.io/component: checker-service
 {{- end }}
 
-{{- define "elearning.checkerService.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "elearning.name" . }}
+{{- define "pupitre.checkerService.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "pupitre.name" . }}
 app.kubernetes.io/component: checker-service
 {{- end }}
 
@@ -78,12 +78,12 @@ Admin password resolution — priority order:
   4. First install with no value → generate a cryptographically random 32-char
      alphanumeric password and store it in our platform Secret.
 */}}
-{{- define "elearning.adminPassword" -}}
+{{- define "pupitre.adminPassword" -}}
 {{- if not .Values.admin.existingSecret -}}
   {{- if .Values.admin.password -}}
     {{- .Values.admin.password -}}
   {{- else -}}
-    {{- $secret := lookup "v1" "Secret" .Release.Namespace (printf "%s-secrets" (include "elearning.fullname" .)) -}}
+    {{- $secret := lookup "v1" "Secret" .Release.Namespace (printf "%s-secrets" (include "pupitre.fullname" .)) -}}
     {{- if and $secret $secret.data (index $secret.data "ADMIN_PASSWORD") -}}
       {{- index $secret.data "ADMIN_PASSWORD" | b64dec -}}
     {{- else -}}
@@ -97,7 +97,7 @@ Admin password resolution — priority order:
 Whether DATABASE_URL is supplied verbatim by a caller-managed Secret.
 True only for an external database whose existingSecret exposes a full URL key.
 */}}
-{{- define "elearning.databaseUrlFromExternalSecret" -}}
+{{- define "pupitre.databaseUrlFromExternalSecret" -}}
 {{- if and (not .Values.postgresql.enabled) .Values.database.auth.existingSecret .Values.database.auth.urlKey -}}
 true
 {{- end -}}
@@ -107,9 +107,9 @@ true
 DATABASE_URL connection string, assembled from the `database` block.
 Bundled PostgreSQL → in-cluster Service; otherwise → database.host/port.
 */}}
-{{- define "elearning.databaseUrl" -}}
+{{- define "pupitre.databaseUrl" -}}
 {{- if .Values.postgresql.enabled -}}
-postgres://{{ .Values.database.auth.username }}:{{ .Values.database.auth.password }}@{{ include "elearning.fullname" . }}-postgresql.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}:5432/{{ .Values.database.name }}
+postgres://{{ .Values.database.auth.username }}:{{ .Values.database.auth.password }}@{{ include "pupitre.fullname" . }}-postgresql.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}:5432/{{ .Values.database.name }}
 {{- else -}}
 postgres://{{ .Values.database.auth.username }}:{{ .Values.database.auth.password }}@{{ .Values.database.host }}:{{ .Values.database.port }}/{{ .Values.database.name }}
 {{- end -}}
@@ -120,16 +120,16 @@ Name of the Secret that holds DATABASE_URL.
 When the external database exposes its own URL Secret, point directly to it;
 otherwise the chart renders DATABASE_URL into its own Secret.
 */}}
-{{- define "elearning.databaseUrlSecretName" -}}
-{{- if eq (include "elearning.databaseUrlFromExternalSecret" .) "true" -}}
+{{- define "pupitre.databaseUrlSecretName" -}}
+{{- if eq (include "pupitre.databaseUrlFromExternalSecret" .) "true" -}}
 {{ .Values.database.auth.existingSecret }}
 {{- else -}}
-{{ include "elearning.fullname" . }}-secrets
+{{ include "pupitre.fullname" . }}-secrets
 {{- end -}}
 {{- end }}
 
-{{- define "elearning.databaseUrlSecretKey" -}}
-{{- if eq (include "elearning.databaseUrlFromExternalSecret" .) "true" -}}
+{{- define "pupitre.databaseUrlSecretKey" -}}
+{{- if eq (include "pupitre.databaseUrlFromExternalSecret" .) "true" -}}
 {{ .Values.database.auth.urlKey }}
 {{- else -}}
 DATABASE_URL
@@ -139,15 +139,15 @@ DATABASE_URL
 {{/*
 Name of the Secret that holds GIT_TOKEN.
 */}}
-{{- define "elearning.gitTokenSecretName" -}}
+{{- define "pupitre.gitTokenSecretName" -}}
 {{- if .Values.courseService.gitTokenExistingSecret -}}
 {{ .Values.courseService.gitTokenExistingSecret }}
 {{- else -}}
-{{ include "elearning.fullname" . }}-secrets
+{{ include "pupitre.fullname" . }}-secrets
 {{- end -}}
 {{- end }}
 
-{{- define "elearning.gitTokenSecretKey" -}}
+{{- define "pupitre.gitTokenSecretKey" -}}
 {{- if .Values.courseService.gitTokenExistingSecret -}}
 {{ .Values.courseService.gitTokenExistingSecretKey }}
 {{- else -}}
@@ -158,7 +158,7 @@ GIT_TOKEN
 {{/*
 Whether GIT_TOKEN should be injected as an env var (true when a token is configured).
 */}}
-{{- define "elearning.gitTokenEnabled" -}}
+{{- define "pupitre.gitTokenEnabled" -}}
 {{- if or .Values.courseService.gitToken .Values.courseService.gitTokenExistingSecret -}}
 true
 {{- end -}}
@@ -167,15 +167,15 @@ true
 {{/*
 Name of the Secret that holds JWT_SECRET.
 */}}
-{{- define "elearning.jwtSecretName" -}}
+{{- define "pupitre.jwtSecretName" -}}
 {{- if .Values.jwtExistingSecret -}}
 {{ .Values.jwtExistingSecret }}
 {{- else -}}
-{{ include "elearning.fullname" . }}-secrets
+{{ include "pupitre.fullname" . }}-secrets
 {{- end -}}
 {{- end }}
 
-{{- define "elearning.jwtSecretKey" -}}
+{{- define "pupitre.jwtSecretKey" -}}
 {{- if .Values.jwtExistingSecret -}}
 {{ .Values.jwtExistingSecretKey }}
 {{- else -}}
@@ -183,15 +183,15 @@ JWT_SECRET
 {{- end -}}
 {{- end }}
 
-{{- define "elearning.internalSecretName" -}}
+{{- define "pupitre.internalSecretName" -}}
 {{- if .Values.internalServiceExistingSecret -}}
 {{ .Values.internalServiceExistingSecret }}
 {{- else -}}
-{{ include "elearning.fullname" . }}-secrets
+{{ include "pupitre.fullname" . }}-secrets
 {{- end -}}
 {{- end }}
 
-{{- define "elearning.internalSecretKey" -}}
+{{- define "pupitre.internalSecretKey" -}}
 {{- if .Values.internalServiceExistingSecret -}}
 {{ .Values.internalServiceExistingSecretKey }}
 {{- else -}}
@@ -202,22 +202,22 @@ INTERNAL_SERVICE_SECRET
 {{/*
 Ingress scheme (http or https)
 */}}
-{{- define "elearning.scheme" -}}
+{{- define "pupitre.scheme" -}}
 {{- if .Values.ingress.tls }}https{{- else }}http{{- end }}
 {{- end }}
 
 {{/*
 Public base URL of the app (used for CORS, ORIGIN)
 */}}
-{{- define "elearning.publicUrl" -}}
-{{ include "elearning.scheme" . }}://{{ .Values.ingress.host }}
+{{- define "pupitre.publicUrl" -}}
+{{ include "pupitre.scheme" . }}://{{ .Values.ingress.host }}
 {{- end }}
 
 {{/*
 Default container security context — restrictive, suitable for all services.
 Override per-container in values if a service needs specific capabilities.
 */}}
-{{- define "elearning.securityContext" -}}
+{{- define "pupitre.securityContext" -}}
 runAsNonRoot: true
 runAsUser: 1000
 runAsGroup: 1000
@@ -226,4 +226,3 @@ readOnlyRootFilesystem: true
 capabilities:
   drop: [ALL]
 {{- end }}
-

@@ -1,26 +1,26 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "elearning.fullname" . }}-course-service
+  name: {{ include "pupitre.fullname" . }}-course-service
   labels:
-    {{- include "elearning.courseService.labels" . | nindent 4 }}
+    {{- include "pupitre.courseService.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.courseService.replicaCount }}
   strategy:
     {{- toYaml .Values.courseService.strategy | nindent 4 }}
   selector:
     matchLabels:
-      {{- include "elearning.courseService.selectorLabels" . | nindent 6 }}
+      {{- include "pupitre.courseService.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "elearning.courseService.labels" . | nindent 8 }}
+        {{- include "pupitre.courseService.labels" . | nindent 8 }}
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "{{ .Values.courseService.service.port }}"
         prometheus.io/path: "/metrics"
     spec:
-      serviceAccountName: {{ include "elearning.fullname" . }}-course-service
+      serviceAccountName: {{ include "pupitre.fullname" . }}-course-service
       automountServiceAccountToken: true
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -31,7 +31,7 @@ spec:
         image: "{{ .Values.courseService.image.repository }}:{{ .Values.courseService.image.tag | default .Chart.AppVersion }}"
         imagePullPolicy: {{ .Values.courseService.image.pullPolicy }}
         securityContext:
-          {{- include "elearning.securityContext" . | nindent 10 }}
+          {{- include "pupitre.securityContext" . | nindent 10 }}
         ports:
         - name: http
           containerPort: {{ .Values.courseService.service.port }}
@@ -46,24 +46,24 @@ spec:
         - name: JWT_SECRET
           valueFrom:
             secretKeyRef:
-              name: {{ include "elearning.jwtSecretName" . }}
-              key: {{ include "elearning.jwtSecretKey" . }}
+              name: {{ include "pupitre.jwtSecretName" . }}
+              key: {{ include "pupitre.jwtSecretKey" . }}
         - name: INTERNAL_SERVICE_SECRET
           valueFrom:
             secretKeyRef:
-              name: {{ include "elearning.internalSecretName" . }}
-              key: {{ include "elearning.internalSecretKey" . }}
+              name: {{ include "pupitre.internalSecretName" . }}
+              key: {{ include "pupitre.internalSecretKey" . }}
         - name: DATABASE_URL
           valueFrom:
             secretKeyRef:
-              name: {{ include "elearning.databaseUrlSecretName" . }}
-              key: {{ include "elearning.databaseUrlSecretKey" . }}
-        {{- if eq (include "elearning.gitTokenEnabled" .) "true" }}
+              name: {{ include "pupitre.databaseUrlSecretName" . }}
+              key: {{ include "pupitre.databaseUrlSecretKey" . }}
+        {{- if eq (include "pupitre.gitTokenEnabled" .) "true" }}
         - name: GIT_TOKEN
           valueFrom:
             secretKeyRef:
-              name: {{ include "elearning.gitTokenSecretName" . }}
-              key: {{ include "elearning.gitTokenSecretKey" . }}
+              name: {{ include "pupitre.gitTokenSecretName" . }}
+              key: {{ include "pupitre.gitTokenSecretKey" . }}
         {{- end }}
         {{- with .Values.courseService.extraEnv }}
         {{- toYaml . | nindent 8 }}
@@ -98,7 +98,7 @@ spec:
       volumes:
       - name: config
         configMap:
-          name: {{ include "elearning.fullname" . }}-course-service-config
+          name: {{ include "pupitre.fullname" . }}-course-service-config
       - name: git-credentials
         secret:
           secretName: course-repo-secret

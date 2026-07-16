@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# eLearning Platform — Helm Values
+# Pupitre Platform — Helm Values
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── Name overrides ────────────────────────────────────────────────────────────
@@ -77,7 +77,7 @@ courseService:
   #       matchLabels:
   #         app.kubernetes.io/component: course-service
   image:
-    repository: ghcr.io/towarmat83/elearning-course-service
+    repository: ghcr.io/towarmat83/pupitre-course-service
     tag: ""
     pullPolicy: IfNotPresent
   service:
@@ -117,7 +117,7 @@ courseService:
 checkerService:
   replicaCount: 1
   image:
-    repository: ghcr.io/towarmat83/elearning-checker-service
+    repository: ghcr.io/towarmat83/pupitre-checker-service
     tag: ""
     pullPolicy: IfNotPresent
   service:
@@ -152,7 +152,7 @@ userService:
       maxSurge: 1
   topologySpreadConstraints: []
   image:
-    repository: ghcr.io/towarmat83/elearning-user-service
+    repository: ghcr.io/towarmat83/pupitre-user-service
     tag: ""
     pullPolicy: IfNotPresent
   service:
@@ -191,7 +191,7 @@ frontend:
       maxSurge: 1
   topologySpreadConstraints: []
   image:
-    repository: ghcr.io/towarmat83/elearning-frontend
+    repository: ghcr.io/towarmat83/pupitre-frontend
     tag: ""
     pullPolicy: IfNotPresent
   service:
@@ -292,7 +292,7 @@ ingress:
   enabled: true
   className: traefik
   annotations: {}
-  host: elearning.local
+  host: pupitre.local
   tls: []
 
 # ── Database ──────────────────────────────────────────────────────────────────
@@ -338,12 +338,12 @@ database:
   host: "postgresql.example.com"
   port: 5432
   # Database (schema) name. Also used to provision the bundled instance.
-  name: elearning
+  name: pupitre
   auth:
-    username: elearning
+    username: pupitre
     # Cleartext password. Fine for dev; for production leave this and rely on
     # existingSecret instead so no credentials are committed to values.
-    password: elearning_secret
+    password: pupitre_secret
     # ── Production secret sourcing (Vault / External Secrets / SOPS) ──
     # Name of an existing Secret to read credentials from. Empty disables it.
     existingSecret: ""

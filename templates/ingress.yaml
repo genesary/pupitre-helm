@@ -2,9 +2,9 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "elearning.fullname" . }}
+  name: {{ include "pupitre.fullname" . }}
   labels:
-    {{- include "elearning.labels" . | nindent 4 }}
+    {{- include "pupitre.labels" . | nindent 4 }}
   annotations:
     {{- with .Values.ingress.annotations }}
     {{- toYaml . | nindent 4 }}
@@ -25,77 +25,77 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ include "elearning.fullname" . }}-user-service
+                name: {{ include "pupitre.fullname" . }}-user-service
                 port:
                   name: http
           - path: /api/settings
             pathType: Prefix
             backend:
               service:
-                name: {{ include "elearning.fullname" . }}-user-service
+                name: {{ include "pupitre.fullname" . }}-user-service
                 port:
                   name: http
           - path: /api/my
             pathType: Prefix
             backend:
               service:
-                name: {{ include "elearning.fullname" . }}-user-service
+                name: {{ include "pupitre.fullname" . }}-user-service
                 port:
                   name: http
           - path: /api/admin/courses
             pathType: Prefix
             backend:
               service:
-                name: {{ include "elearning.fullname" . }}-course-service
+                name: {{ include "pupitre.fullname" . }}-course-service
                 port:
                   name: http
           - path: /api/admin/lab-checks
             pathType: Prefix
             backend:
               service:
-                name: {{ include "elearning.fullname" . }}-course-service
+                name: {{ include "pupitre.fullname" . }}-course-service
                 port:
                   name: http
           - path: /api/admin
             pathType: Prefix
             backend:
               service:
-                name: {{ include "elearning.fullname" . }}-user-service
+                name: {{ include "pupitre.fullname" . }}-user-service
                 port:
                   name: http
           - path: /api/courses
             pathType: Prefix
             backend:
               service:
-                name: {{ include "elearning.fullname" . }}-course-service
+                name: {{ include "pupitre.fullname" . }}-course-service
                 port:
                   name: http
           - path: /uploads
             pathType: Prefix
             backend:
               service:
-                name: {{ include "elearning.fullname" . }}-course-service
+                name: {{ include "pupitre.fullname" . }}-course-service
                 port:
                   name: http
           - path: /health
             pathType: Exact
             backend:
               service:
-                name: {{ include "elearning.fullname" . }}-course-service
+                name: {{ include "pupitre.fullname" . }}-course-service
                 port:
                   name: http
           - path: /metrics
             pathType: Prefix
             backend:
               service:
-                name: {{ include "elearning.fullname" . }}-course-service
+                name: {{ include "pupitre.fullname" . }}-course-service
                 port:
                   name: http
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: {{ include "elearning.fullname" . }}-frontend
+                name: {{ include "pupitre.fullname" . }}-frontend
                 port:
                   name: http
 {{- end }}

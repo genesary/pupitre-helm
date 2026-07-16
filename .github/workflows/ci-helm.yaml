@@ -106,5 +106,5 @@ jobs:
       - name: Push Helm chart to GHCR
         run: |
           OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          helm push /tmp/charts/elearning-${{ steps.chart.outputs.version }}.tgz \
+          helm push /tmp/charts/pupitre-${{ steps.chart.outputs.version }}.tgz \
             oci://ghcr.io/${OWNER}/charts

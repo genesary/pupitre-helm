@@ -14,7 +14,7 @@ Helm chart for the [Pupitre](https://github.com/genesary/pupitre) eLearning Plat
 ## Install
 
 ```bash
-helm install pupitre oci://ghcr.io/<owner>/charts/elearning --version <version>
+helm install pupitre oci://ghcr.io/<owner>/charts/pupitre --version <version>
 ```
 
 Or from source:

@@ -2,9 +2,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "elearning.fullname" . }}-postgresql
+  name: {{ include "pupitre.fullname" . }}-postgresql
   labels:
-    {{- include "elearning.labels" . | nindent 4 }}
+    {{- include "pupitre.labels" . | nindent 4 }}
     app.kubernetes.io/component: postgresql
 spec:
   ports:
@@ -12,29 +12,29 @@ spec:
       port: 5432
       targetPort: postgresql
   selector:
-    app.kubernetes.io/name: {{ include "elearning.name" . }}
+    app.kubernetes.io/name: {{ include "pupitre.name" . }}
     app.kubernetes.io/component: postgresql
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: {{ include "elearning.fullname" . }}-postgresql
+  name: {{ include "pupitre.fullname" . }}-postgresql
   labels:
-    {{- include "elearning.labels" . | nindent 4 }}
+    {{- include "pupitre.labels" . | nindent 4 }}
     app.kubernetes.io/component: postgresql
 spec:
   # Stable identity + ordered storage lifecycle suit a single-instance database;
   # unlike a Deployment + RWO PVC, a StatefulSet never deadlocks on upgrades.
-  serviceName: {{ include "elearning.fullname" . }}-postgresql
+  serviceName: {{ include "pupitre.fullname" . }}-postgresql
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "elearning.name" . }}
+      app.kubernetes.io/name: {{ include "pupitre.name" . }}
       app.kubernetes.io/component: postgresql
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "elearning.name" . }}
+        app.kubernetes.io/name: {{ include "pupitre.name" . }}
         app.kubernetes.io/component: postgresql
     spec:
       securityContext:
@@ -114,7 +114,7 @@ spec:
     - metadata:
         name: data
         labels:
-          {{- include "elearning.labels" . | nindent 10 }}
+          {{- include "pupitre.labels" . | nindent 10 }}
           app.kubernetes.io/component: postgresql
       spec:
         accessModes:

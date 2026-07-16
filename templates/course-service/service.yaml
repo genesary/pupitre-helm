@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "elearning.fullname" . }}-course-service
+  name: {{ include "pupitre.fullname" . }}-course-service
   labels:
-    {{- include "elearning.courseService.labels" . | nindent 4 }}
+    {{- include "pupitre.courseService.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.courseService.service.type }}
   ports:
@@ -15,4 +15,4 @@ spec:
       nodePort: {{ .Values.courseService.service.nodePort }}
       {{- end }}
   selector:
-    {{- include "elearning.courseService.selectorLabels" . | nindent 4 }}
+    {{- include "pupitre.courseService.selectorLabels" . | nindent 4 }}

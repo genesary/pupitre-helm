@@ -4,9 +4,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.21.0
-  name: courses.elearning.pupitre.io
+  name: courses.pupitre.pupitre.io
 spec:
-  group: elearning.pupitre.io
+  group: pupitre.pupitre.io
   names:
     kind: Course
     listKind: CourseList

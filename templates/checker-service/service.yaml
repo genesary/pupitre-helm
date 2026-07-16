@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "elearning.fullname" . }}-checker-service
+  name: {{ include "pupitre.fullname" . }}-checker-service
   labels:
-    {{- include "elearning.checkerService.labels" . | nindent 4 }}
+    {{- include "pupitre.checkerService.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.checkerService.service.type }}
   ports:
@@ -12,4 +12,4 @@ spec:
       protocol: TCP
       name: http
   selector:
-    {{- include "elearning.checkerService.selectorLabels" . | nindent 4 }}
+    {{- include "pupitre.checkerService.selectorLabels" . | nindent 4 }}

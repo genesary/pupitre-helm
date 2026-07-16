@@ -1,4 +1,4 @@
-🎓 eLearning Platform — {{ .Chart.AppVersion }}
+🎓 Pupitre Platform — {{ .Chart.AppVersion }}
 {{- if .Values.ingress.enabled }}
 
 📡 Access the platform:
@@ -6,9 +6,9 @@
 {{- else }}
 
 📡 Access the services:
-  Course Service : http://{{ include "elearning.fullname" . }}-course-service:{{ .Values.courseService.service.port }}
-  User Service   : http://{{ include "elearning.fullname" . }}-user-service:{{ .Values.userService.service.port }}
-  Frontend       : kubectl port-forward svc/{{ include "elearning.fullname" . }}-frontend 3000:3000
+  Course Service : http://{{ include "pupitre.fullname" . }}-course-service:{{ .Values.courseService.service.port }}
+  User Service   : http://{{ include "pupitre.fullname" . }}-user-service:{{ .Values.userService.service.port }}
+  Frontend       : kubectl port-forward svc/{{ include "pupitre.fullname" . }}-frontend 3000:3000
 {{- end }}
 
 🔑 JWT secret: {{ .Values.jwtSecret | trunc 8 }}...
@@ -20,6 +20,6 @@
    Password → set via admin.password in values
 {{- else }}
    Password → auto-generated, retrieve it with:
-     kubectl get secret {{ include "elearning.fullname" . }}-secrets \
+     kubectl get secret {{ include "pupitre.fullname" . }}-secrets \
        -o jsonpath='{.data.ADMIN_PASSWORD}' | base64 -d && echo
 {{- end }}

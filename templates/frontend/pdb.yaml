@@ -2,12 +2,12 @@
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: {{ include "elearning.fullname" . }}-frontend
+  name: {{ include "pupitre.fullname" . }}-frontend
   labels:
-    {{- include "elearning.frontend.labels" . | nindent 4 }}
+    {{- include "pupitre.frontend.labels" . | nindent 4 }}
 spec:
   minAvailable: 1
   selector:
     matchLabels:
-      {{- include "elearning.frontend.selectorLabels" . | nindent 6 }}
+      {{- include "pupitre.frontend.selectorLabels" . | nindent 6 }}
 {{- end }}
