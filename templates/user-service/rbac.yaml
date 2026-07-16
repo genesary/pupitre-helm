@@ -6,7 +6,7 @@ metadata:
   labels:
     {{- include "pupitre.userService.labels" . | nindent 4 }}
 rules:
-  - apiGroups: ["pupitre.pupitre.io"]
+  - apiGroups: ["elearning.pupitre.io"]
     resources: ["markdownpatterns"]
     verbs: ["get", "list", "watch"]
 
