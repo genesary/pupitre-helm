@@ -14,5 +14,7 @@ data:
     k8sNamespace: {{ .Release.Namespace | quote }}
     userServiceUrl: "http://{{ include "pupitre.fullname" . }}-user-service.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}:{{ .Values.userService.service.port }}"
     gitCacheTtlMinutes: {{ .Values.courseService.env.GIT_CACHE_TTL }}
+    dbMaxOpenConns: {{ .Values.courseService.env.DB_MAX_OPEN_CONNS }}
+    dbMaxIdleConns: {{ .Values.courseService.env.DB_MAX_IDLE_CONNS }}
     gitCredentialsPath: "/etc/git-credentials/git-credentials.yaml"
     checkerServiceUrl: "http://{{ include "pupitre.fullname" . }}-checker-service.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}:{{ .Values.checkerService.service.port }}"

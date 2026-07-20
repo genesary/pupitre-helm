@@ -8,6 +8,8 @@ data:
   config.yaml: |
     port: {{ .Values.userService.service.port }}
     jwtExpiryHours: {{ .Values.userService.env.JWT_EXPIRY_HOURS }}
+    dbMaxOpenConns: {{ .Values.userService.env.DB_MAX_OPEN_CONNS }}
+    dbMaxIdleConns: {{ .Values.userService.env.DB_MAX_IDLE_CONNS }}
     corsOrigins:
       - "{{ include "pupitre.publicUrl" . }}"
     courseServiceUrl: "http://{{ include "pupitre.fullname" . }}-course-service.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}:{{ .Values.courseService.service.port }}"

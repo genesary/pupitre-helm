@@ -97,6 +97,9 @@ courseService:
     LOG_LEVEL: "info"
     # json (default) or text (human-readable, for local dev)
     LOG_FORMAT: "json"
+    # Database connection pool size.
+    DB_MAX_OPEN_CONNS: "10"
+    DB_MAX_IDLE_CONNS: "10"
   # Git token for private repository access.
   # gitTokenExistingSecret: "my-git-secret"   # preferred for production
   # gitTokenExistingSecretKey: "GIT_TOKEN"
@@ -171,6 +174,9 @@ userService:
     LOG_LEVEL: "info"
     # json (default) or text (human-readable, for local dev)
     LOG_FORMAT: "json"
+    # Database connection pool size.
+    DB_MAX_OPEN_CONNS: "20"
+    DB_MAX_IDLE_CONNS: "20"
   extraEnv: []
   extraVolumeMounts: []
   extraVolumes: []
