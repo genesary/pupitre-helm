@@ -20,7 +20,7 @@ tests:
           value: user-service
       - equal:
           path: spec.template.spec.containers[0].image
-          value: ghcr.io/towarmat83/pupitre-user-service:test
+          value: ghcr.io/genesary/pupitre-user-service:test
   - it: exposes the configured service port
     asserts:
       - equal:
