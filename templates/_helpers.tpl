@@ -200,6 +200,43 @@ INTERNAL_SERVICE_SECRET
 {{- end }}
 
 {{/*
+User-service paths that share the /api/courses and /api/admin/courses prefixes
+with course-service. Injected into the main Ingress as ImplementationSpecific
+(regex) entries when className is nginx — nginx evaluates regex locations before
+plain prefix locations, so these win without any priority annotation.
+*/}}
+{{- define "pupitre.ingressNginxOverridePaths" -}}
+- path: /api/courses/[^/]+/(enroll|unenroll)$
+  pathType: ImplementationSpecific
+  backend:
+    service:
+      name: {{ include "pupitre.fullname" . }}-user-service
+      port:
+        name: http
+- path: /api/courses/[^/]+/sessions/
+  pathType: ImplementationSpecific
+  backend:
+    service:
+      name: {{ include "pupitre.fullname" . }}-user-service
+      port:
+        name: http
+- path: /api/admin/courses/[^/]+/enrollments
+  pathType: ImplementationSpecific
+  backend:
+    service:
+      name: {{ include "pupitre.fullname" . }}-user-service
+      port:
+        name: http
+- path: /api/admin/courses/[^/]+/sessions/[^/]+/bookings
+  pathType: ImplementationSpecific
+  backend:
+    service:
+      name: {{ include "pupitre.fullname" . }}-user-service
+      port:
+        name: http
+{{- end }}
+
+{{/*
 Ingress scheme (http or https)
 */}}
 {{- define "pupitre.scheme" -}}

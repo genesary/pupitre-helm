@@ -6,6 +6,9 @@ metadata:
   labels:
     {{- include "pupitre.labels" . | nindent 4 }}
   annotations:
+    {{- if eq .Values.ingress.className "nginx" }}
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    {{- end }}
     {{- with .Values.ingress.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -21,6 +24,9 @@ spec:
     - host: {{ .Values.ingress.host | quote }}
       http:
         paths:
+          {{- if eq .Values.ingress.className "nginx" }}
+          {{- include "pupitre.ingressNginxOverridePaths" . | nindent 10 }}
+          {{- end }}
           - path: /api/auth
             pathType: Prefix
             backend:

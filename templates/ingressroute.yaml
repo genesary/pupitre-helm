@@ -1,0 +1,51 @@
+{{- if and .Values.ingress.enabled (eq .Values.ingress.className "traefik") -}}
+# IngressRoute overrides for user-service paths that share the /api/courses and
+# /api/admin/courses prefixes with course-service. Traefik picks the highest-priority
+# rule on match, so these explicit rules (priority 200) win over the standard
+# Ingress prefix rules generated from ingress.yaml (priority ≤ rule length ≈ 30-60).
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: {{ include "pupitre.fullname" . }}-user-course-routes
+  labels:
+    {{- include "pupitre.labels" . | nindent 4 }}
+spec:
+  entryPoints:
+    - web
+    {{- if .Values.ingress.tls }}
+    - websecure
+    {{- end }}
+  routes:
+    # Self-enroll / unenroll — user action, lives in user-service
+    - match: Host(`{{ .Values.ingress.host }}`) && PathRegexp(`^/api/courses/[^/]+/(enroll|unenroll)$`)
+      kind: Rule
+      priority: 200
+      services:
+        - name: {{ include "pupitre.fullname" . }}-user-service
+          port: http
+
+    # Session booking / unbooking / booking-count — user action, lives in user-service
+    - match: Host(`{{ .Values.ingress.host }}`) && PathRegexp(`^/api/courses/[^/]+/sessions/`)
+      kind: Rule
+      priority: 200
+      services:
+        - name: {{ include "pupitre.fullname" . }}-user-service
+          port: http
+
+    # Admin: course enrollment management — lives in user-service
+    - match: Host(`{{ .Values.ingress.host }}`) && PathRegexp(`^/api/admin/courses/[^/]+/enrollments`)
+      kind: Rule
+      priority: 200
+      services:
+        - name: {{ include "pupitre.fullname" . }}-user-service
+          port: http
+
+    # Admin: session booking list & presence marking — lives in user-service
+    # (session CRUD at /api/admin/courses/{slug}/sessions stays in course-service)
+    - match: Host(`{{ .Values.ingress.host }}`) && PathRegexp(`^/api/admin/courses/[^/]+/sessions/[^/]+/bookings`)
+      kind: Rule
+      priority: 200
+      services:
+        - name: {{ include "pupitre.fullname" . }}-user-service
+          port: http
+{{- end }}
