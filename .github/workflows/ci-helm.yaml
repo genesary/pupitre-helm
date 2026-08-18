@@ -30,15 +30,6 @@ jobs:
         with:
           version: v4.2.1
 
-      - name: Patch chart appVersion
-        run: |
-          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            APP_VERSION="${GITHUB_REF#refs/tags/v}"
-          else
-            APP_VERSION="${GITHUB_SHA::7}"
-          fi
-          yq -i ".appVersion = \"${APP_VERSION}\"" Chart.yaml
-
       - name: helm lint --strict
         run: helm lint . --strict
 
@@ -52,15 +43,6 @@ jobs:
         uses: azure/setup-helm@v4
         with:
           version: v4.2.1
-
-      - name: Patch chart appVersion
-        run: |
-          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            APP_VERSION="${GITHUB_REF#refs/tags/v}"
-          else
-            APP_VERSION="${GITHUB_SHA::7}"
-          fi
-          yq -i ".appVersion = \"${APP_VERSION}\"" Chart.yaml
 
       - name: Install helm-unittest plugin
         run: helm plugin install https://github.com/helm-unittest/helm-unittest --verify=false
@@ -93,9 +75,6 @@ jobs:
       - name: Determine chart version
         id: chart
         run: echo "version=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
-
-      - name: Patch chart appVersion
-        run: yq -i '.appVersion = "${{ steps.chart.outputs.version }}"' Chart.yaml
 
       - name: Package Helm chart
         run: |
