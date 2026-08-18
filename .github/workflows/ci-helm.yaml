@@ -92,7 +92,7 @@ jobs:
 
       - name: Determine chart version
         id: chart
-        run: echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+        run: echo "version=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
 
       - name: Patch chart appVersion
         run: yq -i '.appVersion = "${{ steps.chart.outputs.version }}"' Chart.yaml
