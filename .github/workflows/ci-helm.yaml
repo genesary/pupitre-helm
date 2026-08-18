@@ -8,7 +8,7 @@ on:
     branches:
       - main
     tags:
-      - "v*"
+      - "*"
   pull_request:
 
 concurrency:
@@ -70,7 +70,7 @@ jobs:
 
   push-helm-chart:
     name: Publish Helm chart
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/')
     needs: [helm-lint, helm-unittest]
     runs-on: ubuntu-latest
     permissions:
