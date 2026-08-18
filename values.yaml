@@ -296,7 +296,8 @@ sso:
 # ── Ingress ───────────────────────────────────────────────────────────────────
 ingress:
   enabled: true
-  className: traefik
+  className: traefik   # IngressClass name as it exists in the cluster
+  type: traefik        # Controller type: "traefik" | "nginx" — drives annotation/CRD rendering
   annotations: {}
   host: pupitre.local
   tls: []

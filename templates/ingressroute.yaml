@@ -1,4 +1,4 @@
-{{- if and .Values.ingress.enabled (eq .Values.ingress.className "traefik") -}}
+{{- if and .Values.ingress.enabled (eq .Values.ingress.type "traefik") -}}
 # IngressRoute overrides for user-service paths that share the /api/courses and
 # /api/admin/courses prefixes with course-service. Traefik picks the highest-priority
 # rule on match, so these explicit rules (priority 200) win over the standard
