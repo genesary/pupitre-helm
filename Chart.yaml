@@ -3,7 +3,7 @@ name: pupitre
 description: Pupitre Platform — Course Service (Go) + User Service (Go) + PostgreSQL + Frontend
 type: application
 version: 0.5.1
-appVersion: "1.0.2"
+appVersion: "1.0.3"
 keywords:
   - pupitre
   - education
