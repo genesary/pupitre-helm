@@ -27,14 +27,24 @@ spec:
               {{- include "pupitre.userService.selectorLabels" . | nindent 14 }}
       ports:
         - port: {{ .Values.userService.service.port }}
+    {{- if .Values.postgresql.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ include "pupitre.name" . }}
+              app.kubernetes.io/component: postgresql
+      ports:
+        - port: 5432
+    {{- end }}
     # DNS
     - ports:
         - port: 53
           protocol: UDP
         - port: 53
           protocol: TCP
-    # External git repos
+    # External git repos, and an external database when postgresql.enabled=false
     - ports:
         - port: 443
         - port: 22
+        - port: 5432
 {{- end }}

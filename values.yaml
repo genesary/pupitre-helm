@@ -294,13 +294,42 @@ sso:
   providers: []
 
 # ── Ingress ───────────────────────────────────────────────────────────────────
+# ── Routing ───────────────────────────────────────────────────────────────────
+# Two independent front doors. Either, or BOTH, may be enabled: they render
+# separate objects and do not interfere, so a cluster can serve traffic through
+# an Ingress while migrating to a Gateway, or use one per entry point.
+#
+# Both render from the same routing table (see `pupitre.routeTable` in
+# _helpers.tpl), so they cannot disagree about which service owns a path.
+# Every route is a plain prefix match, so this renders identically on any
+# Ingress controller — there is no `type` to declare.
 ingress:
   enabled: true
   className: traefik   # IngressClass name as it exists in the cluster
-  type: traefik        # Controller type: "traefik" | "nginx" — drives annotation/CRD rendering
   annotations: {}
   host: pupitre.local
   tls: []
+
+# Gateway API HTTPRoute. Requires the Gateway API CRDs and a Gateway to attach
+# to; the Gateway owns the listeners and TLS, so nothing of that sort here.
+httpRoute:
+  enabled: false
+  annotations: {}
+  # Gateway(s) this route attaches to. At least one is required when enabled.
+  #   - name:        Gateway name (required)
+  #     namespace:   defaults to the release namespace
+  #     sectionName: attach to one named listener rather than all of them
+  #     port:        attach to listeners on this port
+  parentRefs: []
+  #  - name: pupitre-gateway
+  #    namespace: gateway-system
+  #    sectionName: websecure
+  # Defaults to [ ingress.host ] when empty.
+  hostnames: []
+  # Whether the Gateway listener terminates TLS. The Gateway owns the
+  # certificate; this only tells the chart to spell the public URL (CORS
+  # origin, ORIGIN) with https.
+  tls: false
 
 # ── Database ──────────────────────────────────────────────────────────────────
 # `database` is the single source of truth for connection + credentials. It is

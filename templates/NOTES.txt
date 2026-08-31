@@ -1,8 +1,15 @@
 🎓 Pupitre Platform — {{ .Chart.AppVersion }}
-{{- if .Values.ingress.enabled }}
+{{- if or .Values.ingress.enabled .Values.httpRoute.enabled }}
 
 📡 Access the platform:
-  http{{ if .Values.ingress.tls }}s{{ end }}://{{ .Values.ingress.host }}
+  {{ include "pupitre.publicUrl" . }}
+  Served by:
+  {{- if .Values.ingress.enabled }}
+    - Ingress {{ include "pupitre.fullname" . }} (class: {{ .Values.ingress.className | default "cluster default" }})
+  {{- end }}
+  {{- if .Values.httpRoute.enabled }}
+    - HTTPRoute {{ include "pupitre.fullname" . }}{{ with .Values.httpRoute.parentRefs }} → Gateway {{ (first .).name }}{{ end }}
+  {{- end }}
 {{- else }}
 
 📡 Access the services:

@@ -200,54 +200,179 @@ INTERNAL_SERVICE_SECRET
 {{- end }}
 
 {{/*
-User-service paths that share the /api/courses and /api/admin/courses prefixes
-with course-service. Injected into the main Ingress as ImplementationSpecific
-(regex) entries when className is nginx — nginx evaluates regex locations before
-plain prefix locations, so these win without any priority annotation.
+The routing table, in one place.
+
+Both the Ingress and the HTTPRoute render from this list, so the two cannot
+drift apart — which is how /api/paths, /api/skills, /api/admin/cache and
+/api/admin/exports/lab-checks previously ended up unrouted or pointed at the
+wrong service while the dev proxy in the frontend routed them correctly.
+
+Every rule is a plain prefix (or one exact path), which is Gateway API *Core*
+conformance and the common denominator of every Ingress controller. That is
+deliberate: no service registers a route inside another's prefix, so nothing
+here needs a regex.
+
+It did once. A handful of user-service endpoints sat under course-service
+prefixes with a course slug in the middle — POST /api/courses/{slug}/enroll,
+GET /api/admin/courses/{slug}/enrollments — where the owner is only decided
+*after* a variable segment, which no prefix match can express. Each front door
+then needed its own workaround: a Traefik-only IngressRoute CRD, an nginx
+regex annotation, and an implementation-specific Gateway API match. Those
+endpoints were moved to resources of their own (/api/enrollments,
+/api/session-bookings), so the whole table is portable again.
+
+Keep it that way: an endpoint whose owner depends on a segment after a
+wildcard reintroduces the coupling to what the ingress happens to support.
 */}}
-{{- define "pupitre.ingressNginxOverridePaths" -}}
-- path: /api/courses/[^/]+/(enroll|unenroll)$
-  pathType: ImplementationSpecific
-  backend:
-    service:
-      name: {{ include "pupitre.fullname" . }}-user-service
-      port:
-        name: http
-- path: /api/courses/[^/]+/sessions/
-  pathType: ImplementationSpecific
-  backend:
-    service:
-      name: {{ include "pupitre.fullname" . }}-user-service
-      port:
-        name: http
-- path: /api/admin/courses/[^/]+/enrollments
-  pathType: ImplementationSpecific
-  backend:
-    service:
-      name: {{ include "pupitre.fullname" . }}-user-service
-      port:
-        name: http
-- path: /api/admin/courses/[^/]+/sessions/[^/]+/bookings
-  pathType: ImplementationSpecific
-  backend:
-    service:
-      name: {{ include "pupitre.fullname" . }}-user-service
-      port:
-        name: http
+{{- define "pupitre.routeTable" -}}
+routes:
+  # ── course-service ─────────────────────────────────────────────────────────
+  - path: /api/admin/exports/lab-checks
+    match: prefix
+    service: course-service
+  - path: /api/admin/courses
+    match: prefix
+    service: course-service
+  - path: /api/admin/lab-checks
+    match: prefix
+    service: course-service
+  - path: /api/admin/cache
+    match: prefix
+    service: course-service
+  - path: /api/courses
+    match: prefix
+    service: course-service
+  - path: /api/paths
+    match: prefix
+    service: course-service
+  - path: /api/skills
+    match: prefix
+    service: course-service
+  # Server-to-server batch lookups; kept off /api/courses and /api/paths so no
+  # course or path slug can shadow them.
+  - path: /api/batch
+    match: prefix
+    service: course-service
+  - path: /uploads
+    match: prefix
+    service: course-service
+  - path: /metrics
+    match: prefix
+    service: course-service
+  - path: /health
+    match: exact
+    service: course-service
+
+  # ── user-service ───────────────────────────────────────────────────────────
+  # Enrolling and session booking are keyed by course slug but owned by
+  # user-service, so they are their own resources rather than verbs hung off
+  # the catalog's URLs — see the note above.
+  - path: /api/admin/session-bookings
+    match: prefix
+    service: user-service
+  - path: /api/admin/enrollments
+    match: prefix
+    service: user-service
+  - path: /api/manager/session-bookings
+    match: prefix
+    service: user-service
+  - path: /api/manager/enrollments
+    match: prefix
+    service: user-service
+  - path: /api/session-bookings
+    match: prefix
+    service: user-service
+  - path: /api/enrollments
+    match: prefix
+    service: user-service
+  - path: /api/leaderboard
+    match: prefix
+    service: user-service
+  - path: /api/patterns
+    match: prefix
+    service: user-service
+  - path: /api/settings
+    match: prefix
+    service: user-service
+  - path: /api/manager
+    match: prefix
+    service: user-service
+  - path: /api/badges
+    match: prefix
+    service: user-service
+  - path: /api/users
+    match: prefix
+    service: user-service
+  - path: /api/admin
+    match: prefix
+    service: user-service
+  - path: /api/auth
+    match: prefix
+    service: user-service
+  - path: /api/my
+    match: prefix
+    service: user-service
+
+  # ── frontend (catch-all) ───────────────────────────────────────────────────
+  - path: /
+    match: prefix
+    service: frontend
 {{- end }}
 
 {{/*
-Ingress scheme (http or https)
+Numeric Service port for a route's target, which HTTPRoute backendRefs
+require (an Ingress may use the port name, a Gateway API route may not).
+*/}}
+{{- define "pupitre.routeServicePort" -}}
+{{- $svc := .service -}}
+{{- $root := .root -}}
+{{- if eq $svc "course-service" -}}{{ $root.Values.courseService.service.port }}
+{{- else if eq $svc "user-service" -}}{{ $root.Values.userService.service.port }}
+{{- else -}}{{ $root.Values.frontend.service.port }}
+{{- end -}}
+{{- end }}
+
+{{/*
+Hostnames an HTTPRoute attaches to: httpRoute.hostnames when set, otherwise
+the Ingress host, so a single-host deployment configures it in one place.
+*/}}
+{{- define "pupitre.httpRouteHostnames" -}}
+{{- if .Values.httpRoute.hostnames -}}
+{{ toYaml .Values.httpRoute.hostnames }}
+{{- else if .Values.ingress.host -}}
+- {{ .Values.ingress.host | quote }}
+{{- end -}}
+{{- end }}
+
+{{/*
+Public scheme (http or https).
+
+TLS is terminated at the Ingress when `ingress.tls` is set, and at the Gateway
+listener — which this chart does not own — when the HTTPRoute is used. The
+latter is why `httpRoute.tls` exists: it tells the chart how to spell the
+public URL it hands to CORS and ORIGIN, nothing more.
 */}}
 {{- define "pupitre.scheme" -}}
-{{- if .Values.ingress.tls }}https{{- else }}http{{- end }}
+{{- if or .Values.ingress.tls .Values.httpRoute.tls }}https{{- else }}http{{- end }}
+{{- end }}
+
+{{/*
+Public host of the app. The HTTPRoute's first hostname when it overrides the
+Ingress host, otherwise the Ingress host.
+*/}}
+{{- define "pupitre.publicHost" -}}
+{{- if and .Values.httpRoute.enabled .Values.httpRoute.hostnames -}}
+{{ first .Values.httpRoute.hostnames }}
+{{- else -}}
+{{ .Values.ingress.host }}
+{{- end -}}
 {{- end }}
 
 {{/*
 Public base URL of the app (used for CORS, ORIGIN)
 */}}
 {{- define "pupitre.publicUrl" -}}
-{{ include "pupitre.scheme" . }}://{{ .Values.ingress.host }}
+{{ include "pupitre.scheme" . }}://{{ include "pupitre.publicHost" . }}
 {{- end }}
 
 {{/*
