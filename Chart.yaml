@@ -1,13 +1,13 @@
 apiVersion: v2
 name: pupitre
-description: Pupitre Platform — Course Service (Go) + User Service (Go) + PostgreSQL + Frontend
+description: Pupitre Learning Platform full stack (Course, User, PostgreSQL, Frontend)
 type: application
-version: 0.6.0
-appVersion: "1.0.3"
+version: 1.0.0
+appVersion: "2.0.0"
 keywords:
   - pupitre
   - education
 
 annotations:
   org.opencontainers.image.source: https://github.com/genesary/pupitre-helm
-  org.opencontainers.image.description: Pupitre Platform — Course Service + User Service + Frontend
+  org.opencontainers.image.description: Pupitre Learning Platform full stack (Course, User, PostgreSQL, Frontend)

@@ -255,6 +255,10 @@ sso:
     clientSecret: ""
     scopes: "openid email profile groups"
     groupClaim: "groups"
+    # Optional comma-separated IdP groups authorized as platform admins. When
+    # set, this mapping is authoritative: OIDC users outside these groups are
+    # synchronized as students at their next OIDC login.
+    groupAdmins: ""
     # Optional. Rewrites the internal base URL to a browser-reachable one in the
     # authorize redirect (split-horizon).
     browserBaseURL: ""

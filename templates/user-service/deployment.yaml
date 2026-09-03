@@ -72,6 +72,10 @@ spec:
           value: {{ .Values.sso.oidc.scopes | quote }}
         - name: OIDC_GROUP_CLAIM
           value: {{ .Values.sso.oidc.groupClaim | quote }}
+        {{- if .Values.sso.oidc.groupAdmins }}
+        - name: OIDC_GROUP_ADMINS
+          value: {{ .Values.sso.oidc.groupAdmins | quote }}
+        {{- end }}
         {{- if .Values.sso.oidc.browserBaseURL }}
         - name: OIDC_BROWSER_BASE_URL
           value: {{ .Values.sso.oidc.browserBaseURL | quote }}
