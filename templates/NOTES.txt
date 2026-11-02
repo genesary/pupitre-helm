@@ -13,12 +13,9 @@
 {{- else }}
 
 📡 Access the services:
-  Course Service : http://{{ include "pupitre.fullname" . }}-course-service:{{ .Values.courseService.service.port }}
-  User Service   : http://{{ include "pupitre.fullname" . }}-user-service:{{ .Values.userService.service.port }}
-  Frontend       : kubectl port-forward svc/{{ include "pupitre.fullname" . }}-frontend 3000:3000
+  API      : http://{{ include "pupitre.fullname" . }}-api:{{ .Values.api.service.port }}
+  Frontend : kubectl port-forward svc/{{ include "pupitre.fullname" . }}-frontend 3000:{{ .Values.frontend.service.port }}
 {{- end }}
-
-🔑 JWT secret: {{ .Values.jwtSecret | trunc 8 }}...
 
 🔐 Admin credentials  (login: admin)
 {{- if .Values.admin.existingSecret }}

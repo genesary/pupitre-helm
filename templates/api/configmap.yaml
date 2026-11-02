@@ -1,18 +1,22 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "pupitre.fullname" . }}-user-service-config
+  name: {{ include "pupitre.fullname" . }}-api-config
   labels:
-    {{- include "pupitre.userService.labels" . | nindent 4 }}
+    {{- include "pupitre.api.labels" . | nindent 4 }}
 data:
+  # The keys of the user-service and course-service ConfigMaps of
+  # genesary/pupitre-helm, merged; the service URLs are gone.
   config.yaml: |
-    port: {{ .Values.userService.service.port }}
-    jwtExpiryHours: {{ .Values.userService.env.JWT_EXPIRY_HOURS }}
-    dbMaxOpenConns: {{ .Values.userService.env.DB_MAX_OPEN_CONNS }}
-    dbMaxIdleConns: {{ .Values.userService.env.DB_MAX_IDLE_CONNS }}
+    port: {{ .Values.api.service.port }}
+    jwtExpiryHours: {{ .Values.api.env.JWT_EXPIRY_HOURS }}
+    dbMaxOpenConns: {{ .Values.api.env.DB_MAX_OPEN_CONNS }}
+    dbMaxIdleConns: {{ .Values.api.env.DB_MAX_IDLE_CONNS }}
     corsOrigins:
       - "{{ include "pupitre.publicUrl" . }}"
-    courseServiceUrl: "http://{{ include "pupitre.fullname" . }}-course-service.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}:{{ .Values.courseService.service.port }}"
+    uploadsDir: "/data/uploads"
+    gitCacheTtlMinutes: {{ .Values.api.env.GIT_CACHE_TTL }}
+    gitCredentialsPath: "/etc/git-credentials/git-credentials.yaml"
     oauthRedirectBase: {{ .Values.sso.redirectBase | default (include "pupitre.publicUrl" .) | quote }}
     {{- if and .Values.sso.enabled .Values.sso.providers }}
     # Client secrets are deliberately omitted here — they are injected as

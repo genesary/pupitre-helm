@@ -9,27 +9,11 @@ spec:
   podSelector:
     matchLabels:
       {{- include "pupitre.frontend.selectorLabels" . | nindent 6 }}
+  # Static files only: the browser calls the API through the ingress, so the
+  # frontend reaches nothing.
   policyTypes: [Ingress, Egress]
   ingress:
     - ports:
-        - port: {{ .Values.frontend.service.port }}
-  egress:
-    - to:
-        - podSelector:
-            matchLabels:
-              {{- include "pupitre.userService.selectorLabels" . | nindent 14 }}
-      ports:
-        - port: {{ .Values.userService.service.port }}
-    - to:
-        - podSelector:
-            matchLabels:
-              {{- include "pupitre.courseService.selectorLabels" . | nindent 14 }}
-      ports:
-        - port: {{ .Values.courseService.service.port }}
-    # DNS
-    - ports:
-        - port: 53
-          protocol: UDP
-        - port: 53
-          protocol: TCP
+        - port: 3000
+  egress: []
 {{- end }}

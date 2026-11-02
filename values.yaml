@@ -1,5 +1,10 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Pupitre Platform — Helm Values
+#
+# Deploys pupitre2 (https://github.com/genesary/pupitre): one API,
+# pupitre-api, which replaces user-service, course-service and checker-service
+# of genesary/pupitre, and the frontend, pupitre-front. Upgrading a release of
+# genesary/pupitre-helm: see README.md, "Upgrading from genesary/pupitre-helm".
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── Name overrides ────────────────────────────────────────────────────────────
@@ -12,20 +17,16 @@ clusterDomain: cluster.local
 
 # ── Secrets ───────────────────────────────────────────────────────────────────
 
-# Shared JWT secret — must match between services.
-# Three modes (same priority order as admin.password):
+# JWT signing secret of the API. Three modes:
 #   1. jwtExistingSecret — reference a pre-existing K8s Secret (Vault / ESO / SOPS)
 #   2. jwtSecret non-empty — explicit value rendered into the chart Secret
-#   3. Default — the placeholder value below (change before production)
-jwtSecret: "change-me-in-production-use-a-long-random-string"
+#   3. Empty (default) — a random 64-char secret is generated on first install
+#      and kept in the release Secret on upgrades.
+# The API refuses to start with a secret shorter than 32 characters or with the
+# placeholder of genesary/pupitre-helm; the chart refuses to render them.
+jwtSecret: ""
 jwtExistingSecret: ""
 jwtExistingSecretKey: "JWT_SECRET"
-
-# Shared service-to-service secret — sent as X-Internal-Secret by course-service
-# when calling user-service /internal/* and checker-service /evaluate.
-internalServiceSecret: "change-me-internal-secret"
-internalServiceExistingSecret: ""
-internalServiceExistingSecretKey: "INTERNAL_SERVICE_SECRET"
 
 # Image pull secrets — for private registries.
 # imagePullSecrets:
@@ -36,9 +37,13 @@ imagePullSecrets: []
 # Requires a CNI that supports NetworkPolicy (Calico, Cilium, Weave…).
 networkPolicy:
   enabled: false
+  # Ports the API may reach outside the cluster's DNS and the bundled database:
+  # the git repositories of the courses (443, 22), an external database (5432),
+  # the OIDC provider and GitLab. Add your providers' ports when they differ.
+  apiEgressPorts: [443, 22, 5432, 80]
 
 # ── Admin account ─────────────────────────────────────────────────────────────
-# Seeded by user-service on startup (idempotent). Three modes:
+# Seeded by the API on startup (idempotent). Three modes:
 #
 #   Mode 1 — auto-generated (default):
 #     Leave password empty. A random 32-char password is generated on first
@@ -58,9 +63,9 @@ admin:
   existingSecret: ""
   existingSecretKey: "ADMIN_PASSWORD"
 
-# ── Services ──────────────────────────────────────────────────────────────────
+# ── API ───────────────────────────────────────────────────────────────────────
 
-courseService:
+api:
   replicaCount: 1
   strategy:
     type: RollingUpdate
@@ -75,21 +80,23 @@ courseService:
   #     whenUnsatisfiable: DoNotSchedule
   #     labelSelector:
   #       matchLabels:
-  #         app.kubernetes.io/component: course-service
+  #         app.kubernetes.io/component: api
   image:
-    repository: ghcr.io/genesary/pupitre-course-service
+    repository: ghcr.io/genesary/pupitre-api
+    # Defaults to the chart's appVersion. Pin a version, never `latest`.
     tag: ""
     pullPolicy: IfNotPresent
   service:
     type: ClusterIP
-    port: 8082
+    port: 8080
+  # The sum of the three services' requests and limits.
   resources:
     requests:
-      memory: "64Mi"
-      cpu: "50m"
-    limits:
       memory: "256Mi"
       cpu: "200m"
+    limits:
+      memory: "1Gi"
+      cpu: "900m"
   env:
     JWT_EXPIRY_HOURS: "24"
     GIT_CACHE_TTL: "10"
@@ -97,86 +104,33 @@ courseService:
     LOG_LEVEL: "info"
     # json (default) or text (human-readable, for local dev)
     LOG_FORMAT: "json"
-    # Database connection pool size.
-    DB_MAX_OPEN_CONNS: "10"
-    DB_MAX_IDLE_CONNS: "10"
+    # One pool for the whole API: the sum of the two services' pools.
+    DB_MAX_OPEN_CONNS: "30"
+    DB_MAX_IDLE_CONNS: "30"
+    # GitLab instance the lab checks read.
+    GITLAB_BASE_URL: "http://gitlab.local:8880"
   # Git token for private repository access.
   # gitTokenExistingSecret: "my-git-secret"   # preferred for production
   # gitTokenExistingSecretKey: "GIT_TOKEN"
   gitToken: ""
   gitTokenExistingSecret: ""
   gitTokenExistingSecretKey: "GIT_TOKEN"
-  extraEnv: []
-  extraVolumeMounts: []
-  extraVolumes: []
-  autoscaling:
-    enabled: false
-    minReplicas: 1
-    maxReplicas: 4
-    targetCPUUtilizationPercentage: 70
-    targetMemoryUtilizationPercentage: 80
-  nodeSelector: {}
-
-checkerService:
-  replicaCount: 1
-  image:
-    repository: ghcr.io/genesary/pupitre-checker-service
-    tag: ""
-    pullPolicy: IfNotPresent
-  service:
-    type: ClusterIP
-    port: 8083
-  resources:
-    requests:
-      memory: "64Mi"
-      cpu: "50m"
-    limits:
-      memory: "256Mi"
-      cpu: "200m"
-  env:
-    # debug/info/warn/error
-    LOG_LEVEL: "info"
-    # json (default) or text (human-readable, for local dev)
-    LOG_FORMAT: "json"
-    GITLAB_BASE_URL: "http://gitlab.local:8880"
-  # GitLab API token for checker-service (stored in the platform Secret as GITLAB_TOKEN)
+  # Per-URL git tokens: a Secret with a `git-credentials.yaml` key, mounted at
+  # /etc/git-credentials. Optional: the API starts without it.
+  gitCredentialsSecret: course-repo-secret
+  # GitLab API token of the lab checks (stored in the release Secret as GITLAB_TOKEN).
   gitLabToken: ""
-  extraEnv: []
-  extraVolumeMounts: []
-  extraVolumes: []
-  nodeSelector: {}
-
-userService:
-  replicaCount: 1
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 0
-      maxSurge: 1
-  topologySpreadConstraints: []
-  image:
-    repository: ghcr.io/genesary/pupitre-user-service
-    tag: ""
-    pullPolicy: IfNotPresent
-  service:
-    type: ClusterIP
-    port: 8081
-  resources:
-    requests:
-      memory: "128Mi"
-      cpu: "100m"
-    limits:
-      memory: "512Mi"
-      cpu: "500m"
-  env:
-    JWT_EXPIRY_HOURS: "24"
-    # debug/info/warn/error
-    LOG_LEVEL: "info"
-    # json (default) or text (human-readable, for local dev)
-    LOG_FORMAT: "json"
-    # Database connection pool size.
-    DB_MAX_OPEN_CONNS: "20"
-    DB_MAX_IDLE_CONNS: "20"
+  # Media uploaded by admins, written to /data/uploads. Persistent by default,
+  # so they survive a restart; with persistence disabled, an emptyDir.
+  # Several replicas share the volume: use a ReadWriteMany storage class then.
+  uploads:
+    persistence:
+      enabled: true
+      # Use a PersistentVolumeClaim you manage instead of creating one.
+      existingClaim: ""
+      size: 5Gi
+      storageClass: ""
+      accessMode: ReadWriteOnce
   extraEnv: []
   extraVolumeMounts: []
   extraVolumes: []
@@ -187,6 +141,10 @@ userService:
     targetCPUUtilizationPercentage: 70
     targetMemoryUtilizationPercentage: 80
   nodeSelector: {}
+
+# ── Frontend ──────────────────────────────────────────────────────────────────
+# Static files served by nginx: the learner app, and the admin app under
+# /admin and /manager. It reads no configuration at run time.
 
 frontend:
   replicaCount: 1
@@ -197,7 +155,8 @@ frontend:
       maxSurge: 1
   topologySpreadConstraints: []
   image:
-    repository: ghcr.io/genesary/pupitre-frontend
+    repository: ghcr.io/genesary/pupitre-front
+    # Defaults to the chart's appVersion. Pin a version, never `latest`.
     tag: ""
     pullPolicy: IfNotPresent
   service:
@@ -205,10 +164,10 @@ frontend:
     port: 3000
   resources:
     requests:
-      memory: "64Mi"
-      cpu: "50m"
+      memory: "32Mi"
+      cpu: "20m"
     limits:
-      memory: "256Mi"
+      memory: "128Mi"
       cpu: "200m"
   extraEnv: []
   extraVolumeMounts: []
@@ -218,6 +177,7 @@ frontend:
     minReplicas: 1
     maxReplicas: 3
     targetCPUUtilizationPercentage: 70
+  nodeSelector: {}
 
 # ── SSO / OAuth ───────────────────────────────────────────────────────────────
 # redirectBase: public URL sent to the providers as redirect_uri.
@@ -257,7 +217,9 @@ sso:
     groupClaim: "groups"
     # Optional comma-separated IdP groups authorized as platform admins. When
     # set, this mapping is authoritative: OIDC users outside these groups are
-    # synchronized as students at their next OIDC login.
+    # synchronized as students at their next OIDC login — managers included.
+    # Leave it empty when the platform has managers, and map the admin group
+    # in /admin/groups instead.
     groupAdmins: ""
     # Optional. Rewrites the internal base URL to a browser-reachable one in the
     # authorize redirect (split-horizon).
@@ -297,16 +259,14 @@ sso:
   #     issuerUrl: "https://accounts.google.com"
   providers: []
 
-# ── Ingress ───────────────────────────────────────────────────────────────────
 # ── Routing ───────────────────────────────────────────────────────────────────
 # Two independent front doors. Either, or BOTH, may be enabled: they render
 # separate objects and do not interfere, so a cluster can serve traffic through
 # an Ingress while migrating to a Gateway, or use one per entry point.
 #
 # Both render from the same routing table (see `pupitre.routeTable` in
-# _helpers.tpl), so they cannot disagree about which service owns a path.
-# Every route is a plain prefix match, so this renders identically on any
-# Ingress controller — there is no `type` to declare.
+# _helpers.tpl): /api, /uploads and /health to the API, everything else to the
+# frontend.
 ingress:
   enabled: true
   className: traefik   # IngressClass name as it exists in the cluster
@@ -332,18 +292,17 @@ httpRoute:
   hostnames: []
   # Whether the Gateway listener terminates TLS. The Gateway owns the
   # certificate; this only tells the chart to spell the public URL (CORS
-  # origin, ORIGIN) with https.
+  # origin, OAuth redirect base) with https.
   tls: false
 
 # ── Database ──────────────────────────────────────────────────────────────────
 # `database` is the single source of truth for connection + credentials. It is
-# shared by the bundled PostgreSQL (when postgresql.enabled=true) and by the
-# application services.
+# shared by the bundled PostgreSQL (when postgresql.enabled=true) and by the API.
 #
 #   Option A — bundled PostgreSQL (dev / small deployments):
 #     postgresql.enabled: true
 #     The in-cluster instance is provisioned from database.auth and database.name;
-#     services connect to it automatically (database.host/port are ignored).
+#     the API connects to it automatically (database.host/port are ignored).
 #
 #   Option B — external / managed database (production):
 #     postgresql.enabled: false
@@ -370,10 +329,11 @@ postgresql:
     limits:
       memory: "512Mi"
       cpu: "500m"
+  nodeSelector: {}
 
 database:
   # Connection target for an EXTERNAL database (Option B).
-  # Ignored when postgresql.enabled=true — services then reach the in-cluster
+  # Ignored when postgresql.enabled=true — the API then reaches the in-cluster
   # Service at <release>-postgresql.<namespace>.svc.<clusterDomain>:5432.
   host: "postgresql.example.com"
   port: 5432
