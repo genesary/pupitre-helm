@@ -5,9 +5,7 @@ metadata:
   labels:
     {{- include "pupitre.api.labels" . | nindent 4 }}
 spec:
-  {{- if not .Values.api.autoscaling.enabled }}
   replicas: {{ .Values.api.replicaCount }}
-  {{- end }}
   strategy:
     {{- toYaml .Values.api.strategy | nindent 4 }}
   selector:
@@ -17,14 +15,12 @@ spec:
     metadata:
       labels:
         {{- include "pupitre.api.labels" . | nindent 8 }}
+      {{- with .Values.api.podAnnotations }}
       annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "{{ .Values.api.service.port }}"
-        prometheus.io/path: "/metrics"
-        # Restart the pods when the configuration changes.
-        checksum/config: {{ include (print $.Template.BasePath "/api/configmap.yaml") . | sha256sum }}
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
     spec:
-      serviceAccountName: {{ include "pupitre.fullname" . }}-api
+      serviceAccountName: {{ include "pupitre.serviceAccountName" (dict "root" . "component" "api" "serviceAccount" .Values.api.serviceAccount) }}
       automountServiceAccountToken: false
       securityContext:
         # Makes the uploads volume writable by the API's user.
@@ -55,8 +51,8 @@ spec:
         - name: JWT_SECRET
           valueFrom:
             secretKeyRef:
-              name: {{ include "pupitre.jwtSecretName" . }}
-              key: {{ include "pupitre.jwtSecretKey" . }}
+              name: {{ include "pupitre.secretName" (dict "root" . "name" .Values.jwtExistingSecret) }}
+              key: {{ .Values.jwtExistingSecretKey }}
         - name: OAUTH_REDIRECT_BASE
           value: {{ .Values.sso.redirectBase | default (include "pupitre.publicUrl" .) | quote }}
         {{- if .Values.sso.oidc.enabled }}
@@ -97,37 +93,35 @@ spec:
         {{- end }}
         {{- if .Values.sso.enabled }}
         {{- range .Values.sso.providers }}
-        {{- if or .clientSecret .existingSecret }}
         - name: SSO_{{ .id | upper }}_CLIENT_SECRET
           valueFrom:
             secretKeyRef:
+              name: {{ include "pupitre.secretName" (dict "root" $ "name" .existingSecret) }}
               {{- if .existingSecret }}
-              name: {{ .existingSecret | quote }}
               key: {{ .existingSecretKey | default "clientSecret" | quote }}
               {{- else }}
-              name: {{ include "pupitre.fullname" $ }}-secrets
               key: SSO_{{ .id | upper }}_CLIENT_SECRET
               {{- end }}
-        {{- end }}
         {{- end }}
         {{- end }}
         - name: DATABASE_URL
           valueFrom:
             secretKeyRef:
-              name: {{ include "pupitre.databaseUrlSecretName" . }}
-              key: {{ include "pupitre.databaseUrlSecretKey" . }}
-        {{- if eq (include "pupitre.gitTokenEnabled" .) "true" }}
+              name: {{ include "pupitre.secretName" (dict "root" . "name" .Values.database.auth.existingSecret) }}
+              key: {{ .Values.database.auth.urlKey }}
+        # Optional: private course repositories only.
         - name: GIT_TOKEN
           valueFrom:
             secretKeyRef:
-              name: {{ include "pupitre.gitTokenSecretName" . }}
-              key: {{ include "pupitre.gitTokenSecretKey" . }}
-        {{- end }}
+              name: {{ include "pupitre.secretName" (dict "root" . "name" .Values.api.gitTokenExistingSecret) }}
+              key: {{ .Values.api.gitTokenExistingSecretKey }}
+              optional: true
+        # Optional: the lab checks only.
         - name: GITLAB_TOKEN
           valueFrom:
             secretKeyRef:
-              name: {{ include "pupitre.fullname" . }}-secrets
-              key: GITLAB_TOKEN
+              name: {{ include "pupitre.secretName" (dict "root" . "name" .Values.api.gitLabTokenExistingSecret) }}
+              key: {{ .Values.api.gitLabTokenExistingSecretKey }}
               optional: true
         # ADMIN_PASSWORD is exposed as a file (not an env var) so the kubelet
         # refreshes it automatically when the Secret changes — no pod restart needed.
@@ -135,6 +129,10 @@ spec:
           value: /etc/admin-password/ADMIN_PASSWORD
         {{- with .Values.api.extraEnv }}
         {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with .Values.api.extraEnvFrom }}
+        envFrom:
+          {{- toYaml . | nindent 10 }}
         {{- end }}
         volumeMounts:
         - name: config
@@ -177,44 +175,32 @@ spec:
             port: http
           periodSeconds: 10
           failureThreshold: 3
+        {{- with .Values.api.resources }}
         resources:
-          {{- toYaml .Values.api.resources | nindent 10 }}
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
       # The API drains its requests within 15 s of SIGTERM.
       terminationGracePeriodSeconds: 30
       volumes:
       - name: config
         configMap:
-          name: {{ include "pupitre.fullname" . }}-api-config
+          name: {{ include "pupitre.fullname" . }}-api
       # Admin password secret — mounted as a file so the kubelet can refresh it
       # live when the Secret is updated (no pod restart required).
       - name: admin-password
         secret:
-          {{- if .Values.admin.existingSecret }}
-          secretName: {{ .Values.admin.existingSecret | quote }}
+          secretName: {{ include "pupitre.secretName" (dict "root" . "name" .Values.admin.existingSecret) }}
           items:
             - key: {{ .Values.admin.existingSecretKey | quote }}
               path: ADMIN_PASSWORD
-          {{- else }}
-          secretName: {{ include "pupitre.fullname" . }}-secrets
-          items:
-            - key: ADMIN_PASSWORD
-              path: ADMIN_PASSWORD
-          {{- end }}
       {{- if .Values.sso.oidc.enabled }}
       # OIDC client secret — mounted as a file so it never appears in the pod env.
       - name: oidc-secret
         secret:
-          {{- if .Values.sso.oidc.existingSecret }}
-          secretName: {{ .Values.sso.oidc.existingSecret | quote }}
+          secretName: {{ include "pupitre.secretName" (dict "root" . "name" .Values.sso.oidc.existingSecret) }}
           items:
             - key: {{ .Values.sso.oidc.existingSecretKey | quote }}
               path: OIDC_CLIENT_SECRET
-          {{- else }}
-          secretName: {{ include "pupitre.fullname" . }}-secrets
-          items:
-            - key: OIDC_CLIENT_SECRET
-              path: OIDC_CLIENT_SECRET
-          {{- end }}
       {{- end }}
       - name: git-credentials
         secret:

@@ -61,8 +61,10 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 3
+          {{- with .Values.frontend.resources }}
           resources:
-            {{- toYaml .Values.frontend.resources | nindent 12 }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
       terminationGracePeriodSeconds: 30
       {{- with .Values.frontend.nodeSelector }}
       nodeSelector:

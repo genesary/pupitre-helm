@@ -55,156 +55,25 @@ app.kubernetes.io/component: postgresql
 
 
 {{/*
-Value kept from the release Secret on upgrades, so a generated secret is never
-rotated unintentionally. Empty when the Secret or the key does not exist yet.
-Takes (dict "root" $ "key" "<KEY>").
+Name of a Secret the chart reads. The chart renders no Secret: they are
+created by the user, or by External Secrets Operator (externalSecret.enabled).
+A reference left empty falls back to existingSecret, then to <release>-secrets.
+Takes (dict "root" $ "name" <the reference's own Secret name>).
 */}}
-{{- define "pupitre.existingSecretValue" -}}
-{{- $secret := lookup "v1" "Secret" .root.Release.Namespace (printf "%s-secrets" (include "pupitre.fullname" .root)) -}}
-{{- if and $secret $secret.data (index $secret.data .key) -}}
-  {{- index $secret.data .key | b64dec -}}
-{{- end -}}
+{{- define "pupitre.secretName" -}}
+{{- .name | default .root.Values.existingSecret | default (printf "%s-secrets" (include "pupitre.fullname" .root)) -}}
 {{- end }}
 
 {{/*
-Admin password resolution — priority order:
-  1. admin.existingSecret → caller manages the Secret entirely, we do nothing.
-  2. admin.password non-empty → use the explicit value from values.yaml.
-  3. Secret already exists (upgrade) → reuse ADMIN_PASSWORD from the live Secret
-     so we never rotate a previously auto-generated password unintentionally.
-  4. First install with no value → generate a cryptographically random 32-char
-     alphanumeric password and store it in our platform Secret.
+Service account of a component: <release>-<component> when the chart creates
+it, otherwise the one named in the values (the namespace's default if none).
+Takes (dict "root" $ "component" "api" "serviceAccount" .Values.api.serviceAccount).
 */}}
-{{- define "pupitre.adminPassword" -}}
-{{- if not .Values.admin.existingSecret -}}
-  {{- if .Values.admin.password -}}
-    {{- .Values.admin.password -}}
-  {{- else -}}
-    {{- $existing := include "pupitre.existingSecretValue" (dict "root" . "key" "ADMIN_PASSWORD") -}}
-    {{- $existing | default (randAlphaNum 32) -}}
-  {{- end -}}
-{{- end -}}
-{{- end }}
-
-{{/*
-JWT secret resolution, in the same order as the admin password. The API
-refuses to start with a secret shorter than 32 characters or with the
-placeholder of genesary/pupitre-helm, so the chart refuses to render them rather than ship a pod that
-crash-loops. A release upgraded from genesary/pupitre-helm keeps that
-placeholder in its Secret: it is replaced by a generated secret, not reused.
-*/}}
-{{- define "pupitre.refusedJwtSecret" -}}
-{{- if or (eq . "change-me-in-production-use-a-long-random-string") (lt (len .) 32) -}}
-true
-{{- end -}}
-{{- end }}
-
-{{- define "pupitre.jwtSecret" -}}
-{{- if .Values.jwtSecret -}}
-  {{- if eq .Values.jwtSecret "change-me-in-production-use-a-long-random-string" -}}
-    {{- fail "jwtSecret is the placeholder of genesary/pupitre-helm, which pupitre-api refuses: set a random secret of at least 32 characters, or leave jwtSecret empty to have one generated." -}}
-  {{- end -}}
-  {{- if lt (len .Values.jwtSecret) 32 -}}
-    {{- fail "jwtSecret is shorter than 32 characters, which pupitre-api refuses: set a longer secret, or leave jwtSecret empty to have one generated." -}}
-  {{- end -}}
-  {{- .Values.jwtSecret -}}
+{{- define "pupitre.serviceAccountName" -}}
+{{- if .serviceAccount.create -}}
+{{- .serviceAccount.name | default (printf "%s-%s" (include "pupitre.fullname" .root) .component) -}}
 {{- else -}}
-  {{- $existing := include "pupitre.existingSecretValue" (dict "root" . "key" "JWT_SECRET") -}}
-  {{- if and $existing (ne (include "pupitre.refusedJwtSecret" $existing) "true") -}}
-    {{- $existing -}}
-  {{- else -}}
-    {{- randAlphaNum 64 -}}
-  {{- end -}}
-{{- end -}}
-{{- end }}
-
-{{/*
-Whether DATABASE_URL is supplied verbatim by a caller-managed Secret.
-True only for an external database whose existingSecret exposes a full URL key.
-*/}}
-{{- define "pupitre.databaseUrlFromExternalSecret" -}}
-{{- if and (not .Values.postgresql.enabled) .Values.database.auth.existingSecret .Values.database.auth.urlKey -}}
-true
-{{- end -}}
-{{- end }}
-
-{{/*
-DATABASE_URL connection string, assembled from the `database` block.
-Bundled PostgreSQL → in-cluster Service; otherwise → database.host/port.
-*/}}
-{{- define "pupitre.databaseUrl" -}}
-{{- if .Values.postgresql.enabled -}}
-postgres://{{ .Values.database.auth.username }}:{{ .Values.database.auth.password }}@{{ include "pupitre.fullname" . }}-postgresql.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}:5432/{{ .Values.database.name }}
-{{- else -}}
-postgres://{{ .Values.database.auth.username }}:{{ .Values.database.auth.password }}@{{ .Values.database.host }}:{{ .Values.database.port }}/{{ .Values.database.name }}
-{{- end -}}
-{{- end }}
-
-{{/*
-Name of the Secret that holds DATABASE_URL.
-When the external database exposes its own URL Secret, point directly to it;
-otherwise the chart renders DATABASE_URL into its own Secret.
-*/}}
-{{- define "pupitre.databaseUrlSecretName" -}}
-{{- if eq (include "pupitre.databaseUrlFromExternalSecret" .) "true" -}}
-{{ .Values.database.auth.existingSecret }}
-{{- else -}}
-{{ include "pupitre.fullname" . }}-secrets
-{{- end -}}
-{{- end }}
-
-{{- define "pupitre.databaseUrlSecretKey" -}}
-{{- if eq (include "pupitre.databaseUrlFromExternalSecret" .) "true" -}}
-{{ .Values.database.auth.urlKey }}
-{{- else -}}
-DATABASE_URL
-{{- end -}}
-{{- end }}
-
-{{/*
-Name of the Secret that holds GIT_TOKEN.
-*/}}
-{{- define "pupitre.gitTokenSecretName" -}}
-{{- if .Values.api.gitTokenExistingSecret -}}
-{{ .Values.api.gitTokenExistingSecret }}
-{{- else -}}
-{{ include "pupitre.fullname" . }}-secrets
-{{- end -}}
-{{- end }}
-
-{{- define "pupitre.gitTokenSecretKey" -}}
-{{- if .Values.api.gitTokenExistingSecret -}}
-{{ .Values.api.gitTokenExistingSecretKey }}
-{{- else -}}
-GIT_TOKEN
-{{- end -}}
-{{- end }}
-
-{{/*
-Whether GIT_TOKEN should be injected as an env var (true when a token is configured).
-*/}}
-{{- define "pupitre.gitTokenEnabled" -}}
-{{- if or .Values.api.gitToken .Values.api.gitTokenExistingSecret -}}
-true
-{{- end -}}
-{{- end }}
-
-{{/*
-Name of the Secret that holds JWT_SECRET.
-*/}}
-{{- define "pupitre.jwtSecretName" -}}
-{{- if .Values.jwtExistingSecret -}}
-{{ .Values.jwtExistingSecret }}
-{{- else -}}
-{{ include "pupitre.fullname" . }}-secrets
-{{- end -}}
-{{- end }}
-
-{{- define "pupitre.jwtSecretKey" -}}
-{{- if .Values.jwtExistingSecret -}}
-{{ .Values.jwtExistingSecretKey }}
-{{- else -}}
-JWT_SECRET
+{{- .serviceAccount.name | default "default" -}}
 {{- end -}}
 {{- end }}
 
@@ -228,7 +97,7 @@ drift apart.
 genesary/pupitre-helm split /api between user-service and course-service by
 prefix. pupitre-api serves every one of those routes, so /api is one prefix
 again, with /uploads (the media), /metrics and /health. /metrics is routed
-as in the reference; Prometheus may also scrape the pod (prometheus.io/*).
+as in the reference; Prometheus may also scrape the pod (api.podAnnotations).
 
 Every rule is a plain prefix (or one exact path), which is Gateway API *Core*
 conformance and the common denominator of every Ingress controller.

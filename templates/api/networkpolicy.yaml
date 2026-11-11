@@ -36,4 +36,7 @@ spec:
         - port: {{ . }}
         {{- end }}
     {{- end }}
+    {{- with .Values.networkPolicy.apiExtraEgress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 {{- end }}

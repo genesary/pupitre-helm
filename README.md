@@ -15,13 +15,21 @@ routes, tables and rules, so this chart deploys one API where the reference depl
 .
 ├── Chart.yaml
 ├── values.yaml
-├── templates/        # api/, frontend/, postgresql/, routing, release Secret
+├── templates/        # api/, frontend/, postgresql/, routing, optional ExternalSecret
 └── tests/            # helm-unittest specs
 ```
 
 ## Install
 
+The chart creates no Secret: create one first, named `<release>-secrets` by default. With
+External Secrets Operator, `externalSecret` creates it from your store instead.
+
 ```bash
+kubectl create secret generic pupitre-secrets \
+  --from-literal=JWT_SECRET="$(openssl rand -hex 32)" \
+  --from-literal=ADMIN_PASSWORD="$(openssl rand -hex 16)" \
+  --from-literal=DATABASE_URL='postgres://pupitre:<password>@<host>:5432/pupitre'
+
 helm install pupitre oci://ghcr.io/genesary/charts/pupitre --version <version>
 ```
 
@@ -42,10 +50,14 @@ never `latest`.
 | Value | Why |
 | --- | --- |
 | `ingress.host` (and `ingress.tls`) | The public URL. The CORS origin and the OAuth redirect base are built from it |
-| `jwtSecret` or `jwtExistingSecret` | Optional. When empty, a 64-character secret is generated and kept across upgrades. An explicit secret must be at least 32 characters: the API refuses shorter ones and the reference chart's placeholder |
-| `database.*` / `postgresql.enabled` | An external database (recommended) or the bundled one |
+| `existingSecret` or `externalSecret` | The Secret holding `JWT_SECRET`, `DATABASE_URL` and `ADMIN_PASSWORD`, and the other keys listed in `values.yaml`. `JWT_SECRET` must be at least 32 characters: the API refuses shorter ones |
+| `postgresql.enabled` | An external database (recommended) or the bundled one. `DATABASE_URL` points at either |
 | `sso.oidc.*` | Keycloak sign-in. See the note on `groupAdmins` below |
-| `api.uploads.persistence` | The media volume at `/data/uploads`, persistent by default. Use `ReadWriteMany` when the API has several replicas |
+| `api.uploads.persistence` | The media volume at `/data/uploads`, persistent by default |
+| `api.resources`, `frontend.resources` | None by default; `values.yaml` recommends some |
+
+The API is not tested with several replicas yet: the chart renders no HorizontalPodAutoscaler or
+PodDisruptionBudget for it, and `api.replicaCount` stays at 1.
 
 **`sso.oidc.groupAdmins`**: leave it empty when the platform has managers. When it is set, every
 OIDC user outside those groups becomes a student at each sign-in, managers included. Map the admin
@@ -67,7 +79,7 @@ Every rule is a prefix match, or one exact match. That is Gateway API *Core* con
 every Ingress controller also supports.
 
 `/metrics` is routed to the API and public, as in the reference chart. Prometheus can also scrape
-the pod directly, through its `prometheus.io/*` annotations.
+the pod directly: add the `prometheus.io/*` annotations to `api.podAnnotations`.
 
 ### Choosing a front door
 
@@ -102,12 +114,15 @@ release can be upgraded in place.
 | genesary/pupitre-helm | This chart |
 | --- | --- |
 | `userService.*`, `courseService.*`, `checkerService.*` | `api.*`: one block for the image, resources, env, extra volumes… |
-| `courseService.gitToken*` | `api.gitToken*` |
-| `checkerService.gitLabToken`, `checkerService.env.GITLAB_BASE_URL` | `api.gitLabToken`, `api.env.GITLAB_BASE_URL` |
+| `jwtSecret`, `admin.password`, `courseService.gitToken`, `checkerService.gitLabToken`, `sso.oidc.clientSecret`, `sso.providers[].clientSecret`, `database.auth.password` | Removed: the values take no secret. Put them in the Secret (see "Switch-over") |
+| `courseService.gitTokenExistingSecret*` | `api.gitTokenExistingSecret*` |
+| `checkerService.env.GITLAB_BASE_URL` | `api.env.GITLAB_BASE_URL` |
 | `internalServiceSecret*` | Removed: no internal route is left |
-| `jwtSecret: change-me-in-production-…` | Refused: set a real secret, or leave `jwtSecret` empty. Left empty, the placeholder kept in the release Secret is replaced by a generated secret |
+| `database.host`, `database.port`, `clusterDomain` | Removed: `DATABASE_URL` holds the connection |
+| `userService.autoscaling`, `courseService.autoscaling` | Removed, with the API's PodDisruptionBudget: the API is not tested with several replicas |
+| `api.resources`, `frontend.resources` | None by default |
 | `frontend.image` (`pupitre-frontend`, Astro) | `frontend.image` (`pupitre-front`, nginx) |
-| `admin.*`, `sso.*`, `ingress.*`, `httpRoute.*`, `database.*`, `postgresql.*`, `networkPolicy.enabled` | Unchanged |
+| `admin.existingSecret*`, `sso.*`, `ingress.*`, `httpRoute.*`, `postgresql.*`, `networkPolicy.enabled` | Unchanged |
 
 `DB_MAX_OPEN_CONNS` and `DB_MAX_IDLE_CONNS` default to 30, the sum of the two services' pools.
 Changing the JWT secret signs every user out once.
@@ -115,7 +130,19 @@ Changing the JWT secret signs every user out once.
 ### Switch-over
 
 1. **Back up the database.**
-2. This step applies only with the **bundled PostgreSQL and persistence enabled**. The reference
+2. **Copy the release Secret.** The reference chart owns `<release>-secrets`, so the upgrade
+   deletes it. Copy its keys into a Secret of another name, then set `existingSecret` to it:
+
+   ```bash
+   kubectl get secret <release>-secrets -o go-template='{{range $k, $v := .data}}{{$k}}={{$v | base64decode}}{{"\n"}}{{end}}' > pupitre.env
+   kubectl create secret generic <release>-credentials --from-env-file=pupitre.env
+   rm pupitre.env
+   ```
+
+   `JWT_SECRET` must not be the reference chart's placeholder, which the API refuses: replace
+   it with a random secret of at least 32 characters. With the bundled PostgreSQL, also add the
+   `db_password` key.
+3. This step applies only with the **bundled PostgreSQL and persistence enabled**. The reference
    chart puts its own version in the StatefulSet's `volumeClaimTemplates`, and Kubernetes does
    not let an upgrade change those. Delete the StatefulSet but keep its pod and its volume; the
    upgrade recreates it on the same volume:
@@ -124,7 +151,7 @@ Changing the JWT secret signs every user out once.
    kubectl delete statefulset <release>-postgresql --cascade=orphan
    ```
 
-3. Upgrade with the converted values:
+4. Upgrade with the converted values:
 
    ```bash
    helm upgrade <release> oci://ghcr.io/genesary/charts/pupitre --version <version> -f my-values.yaml --wait
@@ -137,14 +164,14 @@ Changing the JWT secret signs every user out once.
 
    Requests to `/api` fail for the few seconds the API takes to become ready.
 
-4. Check the API, then check that sign-in works:
+5. Check the API, then check that sign-in works:
 
    ```bash
    kubectl rollout status deploy/<release>-api
    kubectl run curl --rm -it --restart=Never --image=curlimages/curl -- curl -s http://<release>-api:8080/health
    ```
 
-5. Upload the media again. Media uploaded before the switch-over were written inside the old
+6. Upload the media again. Media uploaded before the switch-over were written inside the old
    course-service container, because the reference chart mounted no volume there, and they are
    gone with it.
 
@@ -152,7 +179,7 @@ Changing the JWT secret signs every user out once.
 
 `helm rollback <release> <revision>` brings the three services back on the same database. With the
 bundled PostgreSQL and persistence, run the `kubectl delete statefulset … --cascade=orphan` of
-step 2 first, for the same reason.
+step 3 first, for the same reason.
 
 The API adds one migration, which lets an IdP group be mapped to `manager`. At start-up, the
 reference user-service puts back its rule that only allows `admin` and `student`. That fails while

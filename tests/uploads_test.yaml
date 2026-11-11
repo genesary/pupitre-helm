@@ -43,3 +43,21 @@ tests:
     asserts:
       - hasDocuments:
           count: 0
+
+  - it: adds the configured labels and annotations
+    set:
+      api.uploads.persistence.labels:
+        backup: daily
+      api.uploads.persistence.annotations:
+        backup.example.com/schedule: daily
+    asserts:
+      - equal:
+          path: metadata.labels.backup
+          value: daily
+      - equal:
+          path: metadata.labels["app.kubernetes.io/component"]
+          value: api
+      - equal:
+          path: metadata.annotations
+          value:
+            backup.example.com/schedule: daily

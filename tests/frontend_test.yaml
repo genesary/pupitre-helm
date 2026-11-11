@@ -41,3 +41,10 @@ tests:
     asserts:
       - notExists:
           path: spec.template.spec.containers[0].env
+
+  - it: sets no pod annotation and no resources by default
+    asserts:
+      - notExists:
+          path: spec.template.metadata.annotations
+      - notExists:
+          path: spec.template.spec.containers[0].resources
