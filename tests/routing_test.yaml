@@ -30,23 +30,6 @@ tests:
       - hasDocuments:
           count: 1
         template: httproute.yaml
-      - isKind:
-          of: HTTPRoute
-        template: httproute.yaml
-
-  - it: renders only an HTTPRoute when the Ingress is disabled
-    set:
-      ingress.enabled: false
-      httpRoute.enabled: true
-      httpRoute.parentRefs:
-        - name: pupitre-gateway
-    asserts:
-      - hasDocuments:
-          count: 0
-        template: ingress.yaml
-      - hasDocuments:
-          count: 1
-        template: httproute.yaml
 
   - it: refuses to render an HTTPRoute that attaches to no Gateway
     template: httproute.yaml
@@ -60,198 +43,117 @@ tests:
             HTTPRoute with no parentRefs attaches to no Gateway and routes
             nothing. Set httpRoute.parentRefs[0].name to your Gateway.
 
-  # ── The batch prefix, which must not live under a slug-bearing collection ──
-  - it: routes /api/batch to course-service on the Ingress
+  # ── The routing table ───────────────────────────────────────────────────────
+  - it: routes /api, /uploads, /metrics and /health to the API and the rest to the frontend
     template: ingress.yaml
-    asserts:
-      - contains:
-          path: spec.rules[0].http.paths
-          content:
-            path: /api/batch
-            pathType: Prefix
-            backend:
-              service:
-                name: pupitre-course-service
-                port:
-                  name: http
-
-  - it: routes /api/batch to course-service on the HTTPRoute
-    template: httproute.yaml
-    set:
-      httpRoute.enabled: true
-      httpRoute.parentRefs:
-        - name: pupitre-gateway
-    asserts:
-      - contains:
-          path: spec.rules
-          content:
-            matches:
-              - path:
-                  type: PathPrefix
-                  value: /api/batch
-            backendRefs:
-              - name: pupitre-course-service
-                port: 8082
-
-  # ── Paths that used to be unrouted or pointed at the wrong service ─────────
-  - it: routes the course-service prefixes that previously fell through
-    template: ingress.yaml
-    asserts:
-      - contains:
-          path: spec.rules[0].http.paths
-          content:
-            path: /api/paths
-            pathType: Prefix
-            backend:
-              service:
-                name: pupitre-course-service
-                port:
-                  name: http
-      - contains:
-          path: spec.rules[0].http.paths
-          content:
-            path: /api/skills
-            pathType: Prefix
-            backend:
-              service:
-                name: pupitre-course-service
-                port:
-                  name: http
-      # /api/admin/cache/clear and /api/admin/exports/lab-checks/* live in
-      # course-service but used to match the /api/admin rule and 404 in
-      # user-service.
-      - contains:
-          path: spec.rules[0].http.paths
-          content:
-            path: /api/admin/cache
-            pathType: Prefix
-            backend:
-              service:
-                name: pupitre-course-service
-                port:
-                  name: http
-      - contains:
-          path: spec.rules[0].http.paths
-          content:
-            path: /api/admin/exports/lab-checks
-            pathType: Prefix
-            backend:
-              service:
-                name: pupitre-course-service
-                port:
-                  name: http
-
-  # ── Portability: no controller-specific matching anywhere ────────────────
-  - it: uses only Prefix and Exact matches on the Ingress
-    template: ingress.yaml
-    asserts:
-      # ImplementationSpecific (regex) paths would tie the chart to nginx, and
-      # a Traefik Ingress could not express them at all.
-      - notMatchRegex:
-          path: spec.rules[0].http.paths[*].pathType
-          pattern: ImplementationSpecific
-
-  - it: uses only Core-conformance matches on the HTTPRoute
-    template: httproute.yaml
-    set:
-      httpRoute.enabled: true
-      httpRoute.parentRefs:
-        - name: pupitre-gateway
-    asserts:
-      # RegularExpression is Implementation-specific support in Gateway API:
-      # a conformant Gateway may not implement it.
-      - notMatchRegex:
-          path: spec.rules[*].matches[0].path.type
-          pattern: RegularExpression
-
-  - it: routes the endpoints that moved off the course-service prefixes
-    template: ingress.yaml
-    asserts:
-      - contains:
-          path: spec.rules[0].http.paths
-          content:
-            path: /api/enrollments
-            pathType: Prefix
-            backend:
-              service:
-                name: pupitre-user-service
-                port:
-                  name: http
-      - contains:
-          path: spec.rules[0].http.paths
-          content:
-            path: /api/session-bookings
-            pathType: Prefix
-            backend:
-              service:
-                name: pupitre-user-service
-                port:
-                  name: http
-      - contains:
-          path: spec.rules[0].http.paths
-          content:
-            path: /api/admin/enrollments
-            pathType: Prefix
-            backend:
-              service:
-                name: pupitre-user-service
-                port:
-                  name: http
-      - contains:
-          path: spec.rules[0].http.paths
-          content:
-            path: /api/admin/session-bookings
-            pathType: Prefix
-            backend:
-              service:
-                name: pupitre-user-service
-                port:
-                  name: http
-
-  # ── Gateway attachment ─────────────────────────────────────────────────────
-  - it: defaults the HTTPRoute hostname to the ingress host
-    template: httproute.yaml
-    set:
-      httpRoute.enabled: true
-      httpRoute.parentRefs:
-        - name: pupitre-gateway
-      ingress.host: courses.example.com
     asserts:
       - equal:
-          path: spec.hostnames[0]
-          value: courses.example.com
+          path: spec.rules[0].http.paths
+          value:
+            - path: /api
+              pathType: Prefix
+              backend:
+                service:
+                  name: pupitre-api
+                  port:
+                    name: http
+            - path: /uploads
+              pathType: Prefix
+              backend:
+                service:
+                  name: pupitre-api
+                  port:
+                    name: http
+            - path: /metrics
+              pathType: Prefix
+              backend:
+                service:
+                  name: pupitre-api
+                  port:
+                    name: http
+            - path: /health
+              pathType: Exact
+              backend:
+                service:
+                  name: pupitre-api
+                  port:
+                    name: http
+            - path: /
+              pathType: Prefix
+              backend:
+                service:
+                  name: pupitre-frontend
+                  port:
+                    name: http
 
-  - it: lets the HTTPRoute override the hostnames and target a listener
+  - it: renders the same table on the HTTPRoute, with numeric ports
     template: httproute.yaml
     set:
       httpRoute.enabled: true
-      httpRoute.hostnames: [a.example.com, b.example.com]
       httpRoute.parentRefs:
         - name: pupitre-gateway
-          namespace: gateway-system
-          sectionName: websecure
+    asserts:
+      - equal:
+          path: spec.rules
+          value:
+            - matches:
+                - path:
+                    type: PathPrefix
+                    value: /api
+              backendRefs:
+                - name: pupitre-api
+                  port: 8080
+            - matches:
+                - path:
+                    type: PathPrefix
+                    value: /uploads
+              backendRefs:
+                - name: pupitre-api
+                  port: 8080
+            - matches:
+                - path:
+                    type: PathPrefix
+                    value: /metrics
+              backendRefs:
+                - name: pupitre-api
+                  port: 8080
+            - matches:
+                - path:
+                    type: Exact
+                    value: /health
+              backendRefs:
+                - name: pupitre-api
+                  port: 8080
+            - matches:
+                - path:
+                    type: PathPrefix
+                    value: /
+              backendRefs:
+                - name: pupitre-frontend
+                  port: 3000
+
+  - it: defaults the HTTPRoute hostnames to the Ingress host
+    template: httproute.yaml
+    set:
+      ingress.host: courses.example.com
+      httpRoute.enabled: true
+      httpRoute.parentRefs:
+        - name: pupitre-gateway
     asserts:
       - equal:
           path: spec.hostnames
-          value: [a.example.com, b.example.com]
-      - equal:
-          path: spec.parentRefs[0].namespace
-          value: gateway-system
-      - equal:
-          path: spec.parentRefs[0].sectionName
-          value: websecure
+          value:
+            - courses.example.com
 
-  # ── The catch-all stays last-resort ────────────────────────────────────────
-  - it: sends everything else to the frontend
+  - it: uses the Ingress host and class
     template: ingress.yaml
+    set:
+      ingress.host: courses.example.com
+      ingress.className: nginx
     asserts:
-      - contains:
-          path: spec.rules[0].http.paths
-          content:
-            path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: pupitre-frontend
-                port:
-                  name: http
+      - equal:
+          path: spec.rules[0].host
+          value: courses.example.com
+      - equal:
+          path: spec.ingressClassName
+          value: nginx

@@ -1,58 +1,58 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "pupitre.fullname" . }}-user-service
+  name: {{ include "pupitre.fullname" . }}-api
   labels:
-    {{- include "pupitre.userService.labels" . | nindent 4 }}
+    {{- include "pupitre.api.labels" . | nindent 4 }}
 spec:
-  replicas: {{ .Values.userService.replicaCount }}
+  replicas: {{ .Values.api.replicaCount }}
   strategy:
-    {{- toYaml .Values.userService.strategy | nindent 4 }}
+    {{- toYaml .Values.api.strategy | nindent 4 }}
   selector:
     matchLabels:
-      {{- include "pupitre.userService.selectorLabels" . | nindent 6 }}
+      {{- include "pupitre.api.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "pupitre.userService.labels" . | nindent 8 }}
+        {{- include "pupitre.api.labels" . | nindent 8 }}
+      {{- with .Values.api.podAnnotations }}
       annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "{{ .Values.userService.service.port }}"
-        prometheus.io/path: "/metrics"
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
     spec:
-      serviceAccountName: {{ include "pupitre.fullname" . }}-user-service
+      serviceAccountName: {{ include "pupitre.serviceAccountName" (dict "root" . "component" "api" "serviceAccount" .Values.api.serviceAccount) }}
       automountServiceAccountToken: false
+      securityContext:
+        # Makes the uploads volume writable by the API's user.
+        fsGroup: 1000
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
-      - name: user-service
-        image: "{{ .Values.userService.image.repository }}:{{ .Values.userService.image.tag | default .Chart.AppVersion }}"
-        imagePullPolicy: {{ .Values.userService.image.pullPolicy }}
+      - name: api
+        image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.api.image.pullPolicy }}
         securityContext:
-          {{- include "pupitre.securityContext" . | nindent 10 }}
+          {{- include "pupitre.securityContext" (dict "uid" 1000) | nindent 10 }}
         ports:
         - name: http
-          containerPort: {{ .Values.userService.service.port }}
+          containerPort: {{ .Values.api.service.port }}
           protocol: TCP
         env:
         - name: CONFIG_PATH
-          value: /etc/user-service/config.yaml
+          value: /etc/pupitre/config.yaml
         - name: LOG_LEVEL
-          value: {{ .Values.userService.env.LOG_LEVEL | quote }}
+          value: {{ .Values.api.env.LOG_LEVEL | quote }}
         - name: LOG_FORMAT
-          value: {{ .Values.userService.env.LOG_FORMAT | quote }}
+          value: {{ .Values.api.env.LOG_FORMAT | quote }}
+        - name: GITLAB_BASE_URL
+          value: {{ .Values.api.env.GITLAB_BASE_URL | quote }}
         - name: JWT_SECRET
           valueFrom:
             secretKeyRef:
-              name: {{ include "pupitre.jwtSecretName" . }}
-              key: {{ include "pupitre.jwtSecretKey" . }}
-        - name: INTERNAL_SERVICE_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: {{ include "pupitre.internalSecretName" . }}
-              key: {{ include "pupitre.internalSecretKey" . }}
+              name: {{ include "pupitre.secretName" (dict "root" . "name" .Values.jwtExistingSecret) }}
+              key: {{ .Values.jwtExistingSecretKey }}
         - name: OAUTH_REDIRECT_BASE
           value: {{ .Values.sso.redirectBase | default (include "pupitre.publicUrl" .) | quote }}
         {{- if .Values.sso.oidc.enabled }}
@@ -93,35 +93,50 @@ spec:
         {{- end }}
         {{- if .Values.sso.enabled }}
         {{- range .Values.sso.providers }}
-        {{- if or .clientSecret .existingSecret }}
         - name: SSO_{{ .id | upper }}_CLIENT_SECRET
           valueFrom:
             secretKeyRef:
+              name: {{ include "pupitre.secretName" (dict "root" $ "name" .existingSecret) }}
               {{- if .existingSecret }}
-              name: {{ .existingSecret | quote }}
               key: {{ .existingSecretKey | default "clientSecret" | quote }}
               {{- else }}
-              name: {{ include "pupitre.fullname" $ }}-secrets
               key: SSO_{{ .id | upper }}_CLIENT_SECRET
               {{- end }}
-        {{- end }}
         {{- end }}
         {{- end }}
         - name: DATABASE_URL
           valueFrom:
             secretKeyRef:
-              name: {{ include "pupitre.databaseUrlSecretName" . }}
-              key: {{ include "pupitre.databaseUrlSecretKey" . }}
+              name: {{ include "pupitre.secretName" (dict "root" . "name" .Values.database.auth.existingSecret) }}
+              key: {{ .Values.database.auth.urlKey }}
+        # Optional: private course repositories only.
+        - name: GIT_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "pupitre.secretName" (dict "root" . "name" .Values.api.gitTokenExistingSecret) }}
+              key: {{ .Values.api.gitTokenExistingSecretKey }}
+              optional: true
+        # Optional: the lab checks only.
+        - name: GITLAB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "pupitre.secretName" (dict "root" . "name" .Values.api.gitLabTokenExistingSecret) }}
+              key: {{ .Values.api.gitLabTokenExistingSecretKey }}
+              optional: true
         # ADMIN_PASSWORD is exposed as a file (not an env var) so the kubelet
         # refreshes it automatically when the Secret changes — no pod restart needed.
         - name: ADMIN_PASSWORD_FILE
           value: /etc/admin-password/ADMIN_PASSWORD
-        {{- with .Values.userService.extraEnv }}
+        {{- with .Values.api.extraEnv }}
         {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with .Values.api.extraEnvFrom }}
+        envFrom:
+          {{- toYaml . | nindent 10 }}
         {{- end }}
         volumeMounts:
         - name: config
-          mountPath: /etc/user-service
+          mountPath: /etc/pupitre
           readOnly: true
         - name: admin-password
           mountPath: /etc/admin-password
@@ -131,7 +146,15 @@ spec:
           mountPath: /etc/oidc
           readOnly: true
         {{- end }}
-        {{- with .Values.userService.extraVolumeMounts }}
+        - name: git-credentials
+          mountPath: /etc/git-credentials
+          readOnly: true
+        # The git cache of the courses.
+        - name: tmp
+          mountPath: /tmp
+        - name: uploads
+          mountPath: /data/uploads
+        {{- with .Values.api.extraVolumeMounts }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
         startupProbe:
@@ -150,55 +173,56 @@ spec:
           httpGet:
             path: /health
             port: http
-          initialDelaySeconds: 5
           periodSeconds: 10
           failureThreshold: 3
+        {{- with .Values.api.resources }}
         resources:
-          {{- toYaml .Values.userService.resources | nindent 10 }}
-      terminationGracePeriodSeconds: 60
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      # The API drains its requests within 15 s of SIGTERM.
+      terminationGracePeriodSeconds: 30
       volumes:
       - name: config
         configMap:
-          name: {{ include "pupitre.fullname" . }}-user-service-config
+          name: {{ include "pupitre.fullname" . }}-api
       # Admin password secret — mounted as a file so the kubelet can refresh it
       # live when the Secret is updated (no pod restart required).
       - name: admin-password
         secret:
-          {{- if .Values.admin.existingSecret }}
-          secretName: {{ .Values.admin.existingSecret | quote }}
+          secretName: {{ include "pupitre.secretName" (dict "root" . "name" .Values.admin.existingSecret) }}
           items:
             - key: {{ .Values.admin.existingSecretKey | quote }}
               path: ADMIN_PASSWORD
-          {{- else }}
-          secretName: {{ include "pupitre.fullname" . }}-secrets
-          items:
-            - key: ADMIN_PASSWORD
-              path: ADMIN_PASSWORD
-          {{- end }}
       {{- if .Values.sso.oidc.enabled }}
       # OIDC client secret — mounted as a file so it never appears in the pod env.
       - name: oidc-secret
         secret:
-          {{- if .Values.sso.oidc.existingSecret }}
-          secretName: {{ .Values.sso.oidc.existingSecret | quote }}
+          secretName: {{ include "pupitre.secretName" (dict "root" . "name" .Values.sso.oidc.existingSecret) }}
           items:
             - key: {{ .Values.sso.oidc.existingSecretKey | quote }}
               path: OIDC_CLIENT_SECRET
-          {{- else }}
-          secretName: {{ include "pupitre.fullname" . }}-secrets
-          items:
-            - key: OIDC_CLIENT_SECRET
-              path: OIDC_CLIENT_SECRET
-          {{- end }}
       {{- end }}
-      {{- with .Values.userService.extraVolumes }}
+      - name: git-credentials
+        secret:
+          secretName: {{ .Values.api.gitCredentialsSecret | quote }}
+          optional: true
+      - name: tmp
+        emptyDir: {}
+      - name: uploads
+        {{- if .Values.api.uploads.persistence.enabled }}
+        persistentVolumeClaim:
+          claimName: {{ include "pupitre.uploadsClaimName" . }}
+        {{- else }}
+        emptyDir: {}
+        {{- end }}
+      {{- with .Values.api.extraVolumes }}
       {{- toYaml . | nindent 6 }}
       {{- end }}
-      {{- with .Values.userService.nodeSelector }}
+      {{- with .Values.api.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.userService.topologySpreadConstraints }}
+      {{- with .Values.api.topologySpreadConstraints }}
       topologySpreadConstraints:
         {{- toYaml . | nindent 8 }}
       {{- end }}

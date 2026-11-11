@@ -12,8 +12,7 @@ spec:
       port: 5432
       targetPort: postgresql
   selector:
-    app.kubernetes.io/name: {{ include "pupitre.name" . }}
-    app.kubernetes.io/component: postgresql
+    {{- include "pupitre.postgresql.selectorLabels" . | nindent 4 }}
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -29,13 +28,11 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "pupitre.name" . }}
-      app.kubernetes.io/component: postgresql
+      {{- include "pupitre.postgresql.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "pupitre.name" . }}
-        app.kubernetes.io/component: postgresql
+        {{- include "pupitre.postgresql.selectorLabels" . | nindent 8 }}
     spec:
       securityContext:
         # The official postgres image runs as uid/gid 999; fsGroup makes the
@@ -60,14 +57,10 @@ spec:
             - name: POSTGRES_USER
               value: {{ .Values.database.auth.username | quote }}
             - name: POSTGRES_PASSWORD
-              {{- if .Values.database.auth.existingSecret }}
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.database.auth.existingSecret }}
-                  key: {{ .Values.database.auth.passwordKey | default "db_password" }}
-              {{- else }}
-              value: {{ .Values.database.auth.password | quote }}
-              {{- end }}
+                  name: {{ include "pupitre.secretName" (dict "root" . "name" .Values.database.auth.existingSecret) }}
+                  key: {{ .Values.database.auth.passwordKey }}
             - name: POSTGRES_DB
               value: {{ .Values.database.name | quote }}
             - name: PGDATA
@@ -113,9 +106,11 @@ spec:
   volumeClaimTemplates:
     - metadata:
         name: data
+        # Stable labels only: a StatefulSet's volumeClaimTemplates cannot change,
+        # so they carry neither the chart nor the app version.
         labels:
-          {{- include "pupitre.labels" . | nindent 10 }}
-          app.kubernetes.io/component: postgresql
+          {{- include "pupitre.postgresql.selectorLabels" . | nindent 10 }}
+          app.kubernetes.io/instance: {{ .Release.Name }}
       spec:
         accessModes:
           - {{ .Values.postgresql.persistence.accessMode }}
