@@ -8,9 +8,8 @@ Helm chart for [pupitre](https://github.com/genesary/pupitre). It deploys three 
 
 The chart is adapted from [`genesary/pupitre-helm`](https://github.com/genesary/pupitre-helm)
 at `48e9ecb`. That chart deploys the three services of `genesary/pupitre`: user-service,
-course-service and checker-service. pupitre2 merged them into one API with the same routes,
-tables and rules, so this chart deploys one API where the reference deploys three. See pupitre2's
-`docs/specs/108-backend-operations-and-testing.md`.
+course-service and checker-service. Since v3.0.0, pupitre runs them as one API with the same
+routes, tables and rules, so this chart deploys one API where the reference deploys three.
 
 ```
 .
@@ -32,7 +31,7 @@ Or from source:
 helm install pupitre . -f my-values.yaml
 ```
 
-The images default to the chart's `appVersion`, which is a release of pupitre2. They are
+The images default to the chart's `appVersion`, which is a release of pupitre. They are
 `ghcr.io/genesary/pupitre-api` and `ghcr.io/genesary/pupitre-front`. Pin a version tag,
 never `latest`.
 

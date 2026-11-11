@@ -89,8 +89,7 @@ Admin password resolution — priority order:
 {{/*
 JWT secret resolution, in the same order as the admin password. The API
 refuses to start with a secret shorter than 32 characters or with the
-placeholder of genesary/pupitre-helm (docs/specs/190-backend-defects.md B4 of
-pupitre2), so the chart refuses to render them rather than ship a pod that
+placeholder of genesary/pupitre-helm, so the chart refuses to render them rather than ship a pod that
 crash-loops. A release upgraded from genesary/pupitre-helm keeps that
 placeholder in its Secret: it is replaced by a generated secret, not reused.
 */}}
@@ -229,8 +228,7 @@ drift apart.
 genesary/pupitre-helm split /api between user-service and course-service by
 prefix. pupitre-api serves every one of those routes, so /api is one prefix
 again, with /uploads (the media), /metrics and /health. /metrics is routed
-as in the reference (pupitre2 docs/specs/190-backend-defects.md B15, "Kept as
-the reference"); Prometheus may also scrape the pod (prometheus.io/*).
+as in the reference; Prometheus may also scrape the pod (prometheus.io/*).
 
 Every rule is a plain prefix (or one exact path), which is Gateway API *Core*
 conformance and the common denominator of every Ingress controller.

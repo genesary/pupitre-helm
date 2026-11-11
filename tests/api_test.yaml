@@ -100,7 +100,7 @@ tests:
           path: data["config.yaml"]
           pattern: 'ServiceUrl'
 
-  # ── Uploads (pupitre2 docs/specs/190-backend-defects.md B22) ────────────────
+  # ── Uploads ──────────────────────────────────────────────────────────────────
   - it: mounts a persistent volume at /data/uploads by default
     template: api/deployment.yaml
     asserts:

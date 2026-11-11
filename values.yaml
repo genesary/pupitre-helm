@@ -1,7 +1,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Pupitre Platform — Helm Values
 #
-# Deploys pupitre2 (https://github.com/genesary/pupitre): one API,
+# Deploys pupitre (https://github.com/genesary/pupitre): one API,
 # pupitre-api, which replaces user-service, course-service and checker-service
 # of genesary/pupitre, and the frontend, pupitre-front. Upgrading a release of
 # genesary/pupitre-helm: see README.md, "Upgrading from genesary/pupitre-helm".
