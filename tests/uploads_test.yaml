@@ -61,3 +61,4 @@ tests:
           path: metadata.annotations
           value:
             backup.example.com/schedule: daily
+            helm.sh/resource-policy: keep
